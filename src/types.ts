@@ -1,0 +1,244 @@
+export type DisposalMethod = 
+  | 'تحريك بالكسر'
+  | 'تحريك بالفتح'
+  | 'تحريك بالضم'
+  | 'تحريك بالفتح / الكسر'
+  | 'حذف حرف المد لفظاً'
+  | 'سقوط همزة الوصل'
+  | 'جائز (المد اللازم)'
+  | 'جائز (عند الوقف)';
+
+export interface QuranExample {
+  id: string;
+  ayahText: string;
+  surahName: string;
+  ayahNumber: number | string;
+  targetPhrase: string;
+  firstSukoon: string;
+  secondSukoon: string;
+  reason: string;
+  method: DisposalMethod | string;
+  disposalDetails: string;
+  pronunciationGuide: string;
+  commonMistake: string;
+  scholarlyNote?: string;
+  qiraatNote?: string;
+  audioPronunciationText: string;
+  incorrectPronunciationText: string;
+  isFirstSukoonCorrect?: boolean; // true = صحيح, false = معتل
+  isSecondSukoonOriginal?: boolean; // true = أصلي, false = عارض
+}
+
+export interface SummaryTableRow {
+  id: string;
+  type: string;
+  condition: string;
+  disposalMethod: string;
+  exampleText: string;
+  surahRef: string;
+  tajweedRule: string;
+  scholarlyNote: string;
+}
+
+export interface ExceptionWord {
+  id: string;
+  word: string;
+  surah: string;
+  ayah: number | string;
+  originText: string;
+  sukoonCause: string;
+  disposalMethod: string;
+  readingOptions: string[];
+  isHafsSpecific: boolean;
+  scholarlyDirection: string;
+  otherRecitersNotes?: string;
+}
+
+export interface MindMapNode {
+  id: string;
+  label: string;
+  subtitle?: string;
+  children?: MindMapNode[];
+  badge?: string;
+}
+
+export interface ExerciseItem {
+  id: string;
+  type: 'extract' | 'classify' | 'analyze' | 'correct';
+  title: string;
+  question: string;
+  ayahText?: string;
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+export interface DiagramBranch {
+  title: string;
+  badge?: string;
+  color?: 'emerald' | 'amber' | 'purple' | 'blue' | 'rose';
+  details: string[];
+}
+
+export interface DiagramTree {
+  mainTitle: string;
+  subTitle?: string;
+  branches: DiagramBranch[];
+}
+
+export interface Lesson {
+  id: string;
+  lessonNumber: number;
+  title: string;
+  subtitle: string;
+  objectives: string[];
+  contentMarkdown: string;
+  diagramTree?: DiagramTree;
+  examples: QuranExample[];
+  summaryPoints: string[];
+  summaryTable?: SummaryTableRow[];
+  exercises: ExerciseItem[];
+  discussionQuestions: string[];
+  discussionAnswers?: string[]; // إجابات أسئلة المناقشة في نسخة المعلم
+  homeworkTask: string;
+  homeworkSolution?: string; // إجابة الواجب المنزلي في نسخة المعلم
+  recitationTask: string;
+  recitationGuide?: string; // توجيه الأداء والتلاوة في نسخة المعلم
+}
+
+export interface Unit {
+  id: string;
+  unitNumber: number;
+  title: string;
+  subtitle: string;
+  description: string;
+  estimatedLectures: string; // e.g., "محاضرتان إلى 3 محاضرات"
+  lessons: Lesson[];
+  mindMap: MindMapNode;
+  unitReviewMarkdown: string;
+  quiz: {
+    id: string;
+    title: string;
+    questions: {
+      id: number;
+      question: string;
+      options: string[];
+      correctIndex: number;
+      explanation: string;
+    }[];
+  };
+  commonMistakes: {
+    mistake: string;
+    cause: string;
+    effect?: string;
+    correction: string;
+    exampleWrong: string;
+    exampleRight: string;
+  }[];
+}
+
+export interface ScholarlyBook {
+  title: string;
+  author: string;
+  description: string;
+  importance: string;
+}
+
+export interface ComprehensiveExamQuestion {
+  id: number;
+  unitNumber: number;
+  type: 'mcq' | 'analysis' | 'correction';
+  question: string;
+  contextText?: string;
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+  points: number;
+}
+
+export interface ReviewQuestion {
+  id: number;
+  category: string;
+  question: string;
+  answer: string;
+  sourceBook: string;
+}
+
+export interface MultipleChoiceQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  category: string;
+}
+
+export interface ExtractionExercise {
+  id: number;
+  ayahText: string;
+  surahInfo: string;
+  targetPhrase: string;
+  firstSukoon: string;
+  secondSukoon: string;
+  correctMethod: string;
+  explanation: string;
+  optionsForMethod: string[];
+}
+
+export interface Course {
+  id: string; // e.g. 'sakinan' | 'idgham'
+  title: string;
+  shortTitle: string;
+  subtitle: string;
+  badge: string;
+  iconName: string;
+  description: string;
+  author: string;
+  qualificationNote: string; // Note printed on certificate if score >= 98%
+  units: Unit[];
+  summaryTable: SummaryTableRow[];
+  exceptionWords: ExceptionWord[];
+  quranExamples: QuranExample[];
+  comprehensiveExamBank: ComprehensiveExamQuestion[];
+  books?: ScholarlyBook[];
+  rulesCheatSheetMarkdown?: string;
+}
+
+export interface TrainerAccount {
+  id: string; // unique doc id or username
+  name: string; // Trainer Full Name (e.g. "د. أحمد محمد إبراهيم")
+  username: string; // login identifier
+  password: string; // trainer passcode
+  role: 'super_admin' | 'trainer';
+  status: 'active' | 'suspended';
+  referralCode: string; // code to share with students (e.g. "AHMED2026")
+  phone?: string;
+  notes?: string; // subscription notes (e.g. "اشتراك سنوي حتى نهاية 2026")
+  maxStudents?: number; // 0 for unlimited
+  createdAt: string;
+  updatedAt?: number;
+}
+
+export interface StudentSubmission {
+  id: string;
+  studentName: string;
+  unitTitle: string;
+  testType: string; // 'اختبار الباب' | 'الاختبار النهائي' | 'تطبيق درسي'
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  date: string;
+  timestamp?: number;
+  details?: string;
+  trainerId?: string;
+  trainerName?: string;
+}
+
+export interface StudentProfile {
+  name: string;
+  registeredAt: string;
+  trainerId?: string;
+  trainerName?: string;
+  referralCode?: string;
+}
+
