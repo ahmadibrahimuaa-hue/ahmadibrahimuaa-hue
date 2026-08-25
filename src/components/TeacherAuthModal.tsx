@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { authenticateTrainerOrAdmin, setCurrentAuthTrainer } from '../utils/trainerStorage';
 import { TrainerAccount } from '../types';
+import { WhatsAppSupport } from './WhatsAppSupport';
 
 interface TeacherAuthModalProps {
   isOpen: boolean;
@@ -250,6 +251,9 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
             </button>
           </form>
         )}
+
+        {/* WhatsApp Support Section */}
+        <WhatsAppSupport variant="modal-footer" />
 
       </div>
     </div>

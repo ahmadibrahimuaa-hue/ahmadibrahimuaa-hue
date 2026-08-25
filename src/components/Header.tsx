@@ -3,6 +3,7 @@ import { Course } from '../types';
 import { ALL_COURSES } from '../data/courses';
 import { isCourseUnlocked } from '../utils/studentProgressStorage';
 import { BookOpen, GraduationCap, Table, HelpCircle, Bookmark, Printer, Sparkles, Book, ShieldAlert, Award, Layers, UserCheck, Lock, Users, ShieldCheck, Moon, Sun, Trophy, Grid, ChevronDown } from 'lucide-react';
+import { WhatsAppSupport } from './WhatsAppSupport';
 
 interface HeaderProps {
   activeTab: string;
@@ -96,6 +97,9 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Switch Portal & Theme Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* WhatsApp Support Button */}
+            <WhatsAppSupport variant="button" />
+
             {/* Academic Progress Button */}
             <button
               onClick={onOpenProgressModal}

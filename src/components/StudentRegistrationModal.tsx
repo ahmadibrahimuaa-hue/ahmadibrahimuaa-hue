@@ -13,6 +13,7 @@ import {
   TrainerCodeStatus
 } from '../utils/trainerStorage';
 import { TrainerAccount } from '../types';
+import { WhatsAppSupport } from './WhatsAppSupport';
 
 interface StudentRegistrationModalProps {
   isOpen: boolean;
@@ -569,6 +570,9 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
             </button>
           </form>
         )}
+
+        {/* WhatsApp Support Section */}
+        <WhatsAppSupport variant="modal-footer" />
 
       </div>
     </div>

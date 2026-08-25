@@ -21,6 +21,7 @@ import { getCurrentAuthTrainer, setCurrentAuthTrainer, SUPER_ADMIN_ACCOUNT } fro
 import { ALL_COURSES, SAKINAN_COURSE, getCourseById } from './data/courses';
 import { Course, StudentProfile, TrainerAccount } from './types';
 import { SUMMARY_TABLE_DATA } from './data/summaryData';
+import { WhatsAppSupport, FloatingWhatsAppSupport } from './components/WhatsAppSupport';
 import { 
   Sparkles, BookOpen, GraduationCap, Table, Bookmark, Book, 
   Layers, ChevronRight, ChevronLeft, ShieldCheck, Lock, CheckCircle2, X, AlertTriangle, ArrowLeft 
@@ -533,6 +534,9 @@ export default function App() {
         )}
       </div>
 
+      {/* Floating WhatsApp Support Button */}
+      <FloatingWhatsAppSupport />
+
       {/* Footer */}
       <footer className={`py-8 mt-12 no-print border-t transition-colors duration-300 ${
         activeCourseId === 'idgham'
@@ -551,9 +555,14 @@ export default function App() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-950 font-bold bg-amber-400 px-4 py-2 rounded-xl font-quran shadow-sm">
-            <Sparkles className="w-4 h-4 fill-slate-950" />
-            <span>جمع وإعداد: {activeCourse.author}</span>
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            {/* WhatsApp Support Link */}
+            <WhatsAppSupport variant="button" />
+
+            <div className="flex items-center gap-2 text-xs text-slate-950 font-bold bg-amber-400 px-4 py-2 rounded-xl font-quran shadow-sm">
+              <Sparkles className="w-4 h-4 fill-slate-950" />
+              <span>جمع وإعداد: {activeCourse.author}</span>
+            </div>
           </div>
         </div>
       </footer>

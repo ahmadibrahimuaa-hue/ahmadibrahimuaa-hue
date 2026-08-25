@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ALL_COURSES } from '../data/courses';
 import { getStudentProgress, calculateProgressPercentage, isCourseUnlocked, isCoursePassed } from '../utils/studentProgressStorage';
 import { Sparkles, BookOpen, GraduationCap, Award, CheckCircle2, ArrowLeft, Trophy, ShieldCheck, Lock, Unlock, AlertTriangle, Layers, X } from 'lucide-react';
+import { WhatsAppSupport } from './WhatsAppSupport';
 
 interface PlatformHomeProps {
   onSelectCourse: (courseId: string) => void;
@@ -252,6 +253,9 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
           })}
         </div>
       </div>
+
+      {/* WhatsApp Support Section Card */}
+      <WhatsAppSupport variant="card" />
 
       {/* Course Lock Alert Modal */}
       {lockedCourseModal && (
