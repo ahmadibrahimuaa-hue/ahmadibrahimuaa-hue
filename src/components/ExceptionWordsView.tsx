@@ -18,7 +18,7 @@ export const ExceptionWordsView: React.FC<ExceptionWordsViewProps> = ({ course }
   const topicName = course?.shortTitle || course?.title || 'التقاء الساكنين';
 
   const filteredWords = words.filter(item => {
-    const matchesSearch = item.word.includes(searchTerm) || item.surah.includes(searchTerm) || item.originText.includes(searchTerm);
+    const matchesSearch = (item.word || '').includes(searchTerm) || (item.surah || '').includes(searchTerm) || (item.originText || '').includes(searchTerm);
     if (filterType === 'hafs') return matchesSearch && item.isHafsSpecific;
     if (filterType === 'general') return matchesSearch && !item.isHafsSpecific;
     return matchesSearch;

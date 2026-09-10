@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
+:root {
+  --quran-font-family: 'Amiri', 'Amiri Quran', 'Scheherazade New', serif;
+}
+
 @layer utilities {
   .font-quran {
-    font-family: 'Amiri', 'Scheherazade New', serif;
+    font-family: var(--quran-font-family, 'Amiri', 'Scheherazade New', serif);
   }
   .font-tajawal {
     font-family: 'Tajawal', sans-serif;

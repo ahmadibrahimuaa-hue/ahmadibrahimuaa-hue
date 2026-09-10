@@ -19,6 +19,9 @@ service cloud.firestore {
     match /question_banks/{bankId} {
       allow read, write: if true;
     }
+    match /course_waitlist/{entryId} {
+      allow read, write: if true;
+    }
     match /{document=**} {
       allow read, write: if true;
     }

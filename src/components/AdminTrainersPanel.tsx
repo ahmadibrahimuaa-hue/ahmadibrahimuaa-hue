@@ -264,10 +264,10 @@ export const AdminTrainersPanel: React.FC<AdminTrainersPanelProps> = ({
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       return (
-        t.name.toLowerCase().includes(term) ||
-        t.username.toLowerCase().includes(term) ||
-        t.referralCode.toLowerCase().includes(term) ||
-        (t.notes && t.notes.toLowerCase().includes(term))
+        (t.name || '').toLowerCase().includes(term) ||
+        (t.username || '').toLowerCase().includes(term) ||
+        (t.referralCode || '').toLowerCase().includes(term) ||
+        (t.notes ? t.notes.toLowerCase().includes(term) : false)
       );
     }
     return true;

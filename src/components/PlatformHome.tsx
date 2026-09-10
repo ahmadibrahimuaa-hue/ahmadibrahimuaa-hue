@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { ALL_COURSES } from '../data/courses';
+import { Course } from '../types';
+import { getAllCourses } from '../data/courses';
 import { getStudentProgress, calculateProgressPercentage, isCourseUnlocked, isCoursePassed } from '../utils/studentProgressStorage';
-import { Sparkles, BookOpen, GraduationCap, Award, CheckCircle2, ArrowLeft, Trophy, ShieldCheck, Lock, Unlock, AlertTriangle, Layers, X } from 'lucide-react';
+import { Sparkles, BookOpen, GraduationCap, Award, CheckCircle2, ArrowLeft, Trophy, ShieldCheck, Lock, Unlock, AlertTriangle, Layers, X, Briefcase, DollarSign, Gift } from 'lucide-react';
 import { WhatsAppSupport } from './WhatsAppSupport';
 
 interface PlatformHomeProps {
   onSelectCourse: (courseId: string) => void;
   onOpenTeacherDashboard: () => void;
   onOpenProgressModal: () => void;
+  onOpenBagManagement?: () => void;
   isTeacherMode?: boolean;
 }
 
@@ -15,19 +17,23 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
   onSelectCourse,
   onOpenTeacherDashboard,
   onOpenProgressModal,
+  onOpenBagManagement,
   isTeacherMode = false,
 }) => {
   const [lockedCourseModal, setLockedCourseModal] = useState<string | null>(null);
 
-  const handleCourseClick = (courseId: string) => {
-    const unlocked = isCourseUnlocked(courseId, isTeacherMode);
+  const courses = getAllCourses();
+
+  const handleCourseClick = (course: Course) => {
+    const unlocked = isCourseUnlocked(course.id, isTeacherMode, course);
     if (!unlocked) {
-      setLockedCourseModal(courseId);
+      setLockedCourseModal(course.id);
     } else {
-      onSelectCourse(courseId);
+      onSelectCourse(course.id);
     }
   };
 
+  const selectedLockedCourse = courses.find((c) => c.id === lockedCourseModal);
   const isSakinanDone = isCoursePassed('sakinan');
 
   return (
@@ -39,8 +45,8 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
 
         <div className="relative z-10 max-w-4xl space-y-4">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="bg-amber-400 text-slate-950 text-xs font-black px-3 py-1 rounded-full font-quran shadow-sm flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
+            <span className="bg-amber-400 text-slate-950 text-xs font-black px-3 py-1 rounded-full font-quran shadow-sm flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5" />
               <span>المنصة التفاعلية الموحدة للحقائب التجويدية</span>
             </span>
             <span className="bg-emerald-900/80 text-emerald-200 border border-emerald-700 text-xs font-bold px-3 py-1 rounded-full font-quran">
@@ -78,6 +84,16 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
               <ShieldCheck className="w-4 h-4 text-amber-300" />
               <span>لوحة المعلم وإدارة الشهادات</span>
             </button>
+
+            {onOpenBagManagement && (
+              <button
+                onClick={onOpenBagManagement}
+                className="bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-400/50 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+              >
+                <Briefcase className="w-4 h-4 text-amber-400" />
+                <span>إدارة الحقائب والدروس والأسعار ⚙️</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -92,31 +108,38 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
             </h2>
           </div>
           <span className="text-xs font-bold text-slate-500 font-quran">
-            ({ALL_COURSES.length}) حقائب منهجية
+            ({courses.length}) حقائب منهجية
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {ALL_COURSES.map((course) => {
+          {courses.map((course) => {
             const prog = getStudentProgress(course.id);
-            const pct = calculateProgressPercentage(prog, course.units.length);
+            const totalUnits = course.units && course.units.length > 0 ? course.units.length : 3;
+            const pct = calculateProgressPercentage(prog, totalUnits);
             const isCompleted = prog.examCompleted && (prog.examBestScore || 0) >= 90;
             const isIdgham = course.id === 'idgham';
-            const unlocked = isCourseUnlocked(course.id, isTeacherMode);
+            const isComingSoon = course.status === 'coming_soon';
+            const isPaid = course.pricing?.isPaid ?? false;
+            const unlocked = isCourseUnlocked(course.id, isTeacherMode, course);
 
             return (
               <div
                 key={course.id}
                 className={`rounded-3xl p-6 sm:p-7 border-2 shadow-md hover:shadow-2xl transition-all flex flex-col justify-between space-y-6 relative overflow-hidden group ${
-                  isIdgham
-                    ? unlocked
-                      ? 'bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950 text-white border-purple-500/50 hover:border-amber-400'
-                      : 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 text-slate-300 border-slate-700/60 opacity-95'
-                    : 'bg-white text-slate-900 border-slate-200 hover:border-amber-400'
+                  isComingSoon
+                    ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-300 border-indigo-900/60 hover:border-amber-400/50'
+                    : isPaid && !unlocked
+                      ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-slate-300 border-amber-500/40 hover:border-amber-400'
+                      : isIdgham
+                        ? unlocked
+                          ? 'bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950 text-white border-purple-500/50 hover:border-amber-400'
+                          : 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 text-slate-300 border-slate-700/60 opacity-95'
+                        : 'bg-white text-slate-900 border-slate-200 hover:border-amber-400'
                 }`}
               >
-                {/* Visual Glow for Idgham */}
-                {isIdgham && (
+                {/* Visual Glow */}
+                {(isIdgham || isComingSoon || (isPaid && !unlocked)) && (
                   <div className="absolute -top-20 -left-20 w-56 h-56 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
                 )}
 
@@ -124,16 +147,30 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
                 <div className="space-y-4 relative z-10">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className={`text-xs font-extrabold px-3 py-1 rounded-full font-quran border ${
-                      isIdgham
-                        ? unlocked
-                          ? 'bg-purple-900/90 text-purple-100 border-purple-400/50'
-                          : 'bg-slate-800 text-slate-400 border-slate-700'
-                        : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                      isComingSoon
+                        ? 'bg-purple-950/80 text-purple-200 border-purple-500/40'
+                        : isPaid && !unlocked
+                          ? 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                          : isIdgham
+                            ? unlocked
+                              ? 'bg-purple-900/90 text-purple-100 border-purple-400/50'
+                              : 'bg-slate-800 text-slate-400 border-slate-700'
+                            : 'bg-emerald-100 text-emerald-900 border-emerald-300'
                     }`}>
                       {course.badge}
                     </span>
 
-                    {!unlocked ? (
+                    {isComingSoon ? (
+                      <span className="bg-purple-500/20 text-purple-300 border border-purple-400/40 text-xs font-bold px-3 py-1 rounded-full font-quran flex items-center gap-1.5 shadow-xs">
+                        <Lock className="w-3.5 h-3.5 text-purple-400" />
+                        <span>قريباً - قيد الإعداد</span>
+                      </span>
+                    ) : isPaid && !unlocked ? (
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold px-3 py-1 rounded-full font-quran flex items-center gap-1.5 shadow-xs">
+                        <Lock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{course.pricing?.priceText || 'محتوى مدفوع ومقفل'}</span>
+                      </span>
+                    ) : !unlocked ? (
                       <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold px-3 py-1 rounded-full font-quran flex items-center gap-1.5 shadow-xs">
                         <Lock className="w-3.5 h-3.5 text-amber-400" />
                         <span>مغلقة (تتطلب اجتياز الأولى)</span>
@@ -164,14 +201,22 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
 
                   <div>
                     <h3 className={`text-xl sm:text-2xl font-black font-quran transition-colors ${
-                      isIdgham
-                        ? unlocked ? 'text-amber-200 group-hover:text-amber-300' : 'text-slate-300'
-                        : 'text-slate-900 group-hover:text-emerald-900'
+                      isComingSoon
+                        ? 'text-purple-200 group-hover:text-amber-200'
+                        : isPaid && !unlocked
+                          ? 'text-amber-200 group-hover:text-amber-300'
+                          : isIdgham
+                            ? unlocked ? 'text-amber-200 group-hover:text-amber-300' : 'text-slate-300'
+                            : 'text-slate-900 group-hover:text-emerald-900'
                     }`}>
-                      {isIdgham ? (unlocked ? '✨' : '🔒') : '📚'} {course.title}
+                      {isComingSoon || (isPaid && !unlocked) || !unlocked ? '🔒' : isIdgham ? '✨' : '📚'} {course.title}
                     </h3>
                     <p className={`text-xs sm:text-sm mt-1.5 leading-relaxed font-medium ${
-                      isIdgham ? (unlocked ? 'text-purple-100/90' : 'text-slate-400') : 'text-slate-600'
+                      isComingSoon
+                        ? 'text-slate-400'
+                        : isPaid && !unlocked
+                          ? 'text-slate-300'
+                          : isIdgham ? (unlocked ? 'text-purple-100/90' : 'text-slate-400') : 'text-slate-600'
                     }`}>
                       {course.description}
                     </p>
@@ -179,22 +224,24 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
 
                   {/* Course Quick Highlights */}
                   <div className={`p-4 rounded-2xl border text-xs font-quran grid grid-cols-2 sm:grid-cols-3 gap-2 ${
-                    isIdgham
-                      ? unlocked
-                        ? 'bg-indigo-900/60 border-purple-800/60 text-purple-100'
-                        : 'bg-slate-900/80 border-slate-800 text-slate-400'
-                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                    isComingSoon || (isPaid && !unlocked)
+                      ? 'bg-slate-900/80 border-indigo-950 text-slate-400'
+                      : isIdgham
+                        ? unlocked
+                          ? 'bg-indigo-900/60 border-purple-800/60 text-purple-100'
+                          : 'bg-slate-900/80 border-slate-800 text-slate-400'
+                        : 'bg-slate-50 border-slate-200 text-slate-700'
                   }`}>
                     <div className="flex items-center gap-1.5 font-bold">
-                      <Layers className={`w-4 h-4 ${isIdgham ? 'text-amber-300' : 'text-emerald-800'}`} />
-                      <span>{course.units.length} أبواب تعليمية</span>
+                      <Layers className={`w-4 h-4 ${isComingSoon ? 'text-purple-400' : isIdgham ? 'text-amber-300' : 'text-emerald-800'}`} />
+                      <span>{course.units && course.units.length > 0 ? `${course.units.length} أبواب تعليمية` : 'أبواب تخصصية'}</span>
                     </div>
                     <div className="flex items-center gap-1.5 font-bold">
-                      <GraduationCap className={`w-4 h-4 ${isIdgham ? 'text-purple-300' : 'text-amber-600'}`} />
-                      <span>تدريبات ومختبر</span>
+                      <GraduationCap className={`w-4 h-4 ${isComingSoon ? 'text-purple-400' : isIdgham ? 'text-purple-300' : 'text-amber-600'}`} />
+                      <span>{isComingSoon ? 'قائمة انتظار' : 'تدريبات ومختبر'}</span>
                     </div>
                     <div className="flex items-center gap-1.5 font-bold">
-                      <Award className={`w-4 h-4 ${isIdgham ? 'text-amber-400' : 'text-purple-700'}`} />
+                      <Award className={`w-4 h-4 ${isComingSoon ? 'text-amber-400' : isIdgham ? 'text-amber-400' : 'text-purple-700'}`} />
                       <span>شهادة معتمدة</span>
                     </div>
                   </div>
@@ -202,40 +249,62 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
 
                 {/* Course Progress & Action */}
                 <div className={`space-y-4 pt-2 border-t relative z-10 ${
-                  isIdgham ? (unlocked ? 'border-purple-900/60' : 'border-slate-800') : 'border-slate-100'
+                  isComingSoon || (isPaid && !unlocked) ? 'border-slate-800' : isIdgham ? (unlocked ? 'border-purple-900/60' : 'border-slate-800') : 'border-slate-100'
                 }`}>
-                  <div className="space-y-1.5">
-                    <div className={`flex items-center justify-between text-xs font-bold font-quran ${
-                      isIdgham ? (unlocked ? 'text-purple-200' : 'text-slate-400') : 'text-slate-700'
-                    }`}>
-                      <span>التقدم الدراسي الشخصي:</span>
-                      <span className={`font-sans ${isIdgham ? 'text-amber-300' : 'text-emerald-800'}`}>{pct}%</span>
+                  {!isComingSoon && (!isPaid || unlocked) && (
+                    <div className="space-y-1.5">
+                      <div className={`flex items-center justify-between text-xs font-bold font-quran ${
+                        isIdgham ? (unlocked ? 'text-purple-200' : 'text-slate-400') : 'text-slate-700'
+                      }`}>
+                        <span>التقدم الدراسي الشخصي:</span>
+                        <span className={`font-sans ${isIdgham ? 'text-amber-300' : 'text-emerald-800'}`}>{pct}%</span>
+                      </div>
+                      <div className={`w-full h-2.5 rounded-full overflow-hidden border ${
+                        isIdgham ? 'bg-indigo-950 border-purple-900' : 'bg-slate-100 border-slate-200'
+                      }`}>
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isIdgham
+                              ? 'bg-gradient-to-r from-purple-500 via-amber-400 to-yellow-300'
+                              : 'bg-gradient-to-r from-amber-500 to-emerald-700'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        ></div>
+                      </div>
                     </div>
-                    <div className={`w-full h-2.5 rounded-full overflow-hidden border ${
-                      isIdgham ? 'bg-indigo-950 border-purple-900' : 'bg-slate-100 border-slate-200'
-                    }`}>
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isIdgham
-                            ? 'bg-gradient-to-r from-purple-500 via-amber-400 to-yellow-300'
-                            : 'bg-gradient-to-r from-amber-500 to-emerald-700'
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      ></div>
-                    </div>
-                  </div>
+                  )}
 
                   <button
-                    onClick={() => handleCourseClick(course.id)}
+                    onClick={() => {
+                      if (isComingSoon) {
+                        onSelectCourse(course.id);
+                      } else {
+                        handleCourseClick(course);
+                      }
+                    }}
                     className={`w-full font-bold font-quran py-3.5 px-5 rounded-2xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer border ${
-                      !unlocked
-                        ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700 shadow-none'
-                        : isIdgham
-                          ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 border-amber-300 shadow-purple-900/30'
-                          : 'bg-emerald-900 hover:bg-emerald-950 text-amber-300 border-amber-400/30 group-hover:bg-amber-400 group-hover:text-slate-950 group-hover:border-amber-300'
+                      isComingSoon
+                        ? 'bg-purple-900/80 hover:bg-purple-800 text-purple-200 border-purple-700'
+                        : isPaid && !unlocked
+                          ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/50 shadow-none'
+                          : !unlocked
+                            ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700 shadow-none'
+                            : isIdgham
+                              ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 border-amber-300 shadow-purple-900/30'
+                              : 'bg-emerald-900 hover:bg-emerald-950 text-amber-300 border-amber-400/30 group-hover:bg-amber-400 group-hover:text-slate-950 group-hover:border-amber-300'
                     }`}
                   >
-                    {!unlocked ? (
+                    {isComingSoon ? (
+                      <>
+                        <Lock className="w-4 h-4 text-purple-400" />
+                        <span>معاينة الحقيبة وحجز المقعد (قريباً)</span>
+                      </>
+                    ) : isPaid && !unlocked ? (
+                      <>
+                        <Lock className="w-4 h-4 text-amber-400" />
+                        <span>الحقيبة مدفوعة ومقفلة (عرض التفاصيل)</span>
+                      </>
+                    ) : !unlocked ? (
                       <>
                         <Lock className="w-4 h-4 text-amber-400" />
                         <span>الحقيبة مغلقة (تتطلب اجتياز الأولى)</span>
@@ -258,12 +327,12 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
       <WhatsAppSupport variant="card" />
 
       {/* Course Lock Alert Modal */}
-      {lockedCourseModal && (
+      {lockedCourseModal && selectedLockedCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white text-slate-900 rounded-3xl max-w-lg w-full p-6 sm:p-8 border-2 border-amber-400 shadow-2xl space-y-6 text-right relative">
             <button
               onClick={() => setLockedCourseModal(null)}
-              className="absolute top-4 left-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors"
+              className="absolute top-4 left-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -274,44 +343,67 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
               </div>
               <div>
                 <h3 className="text-lg sm:text-xl font-black font-quran text-slate-950">
-                  الحقيبة الثانية مغلقة حالياً 🔒
+                  {selectedLockedCourse.title} 🔒
                 </h3>
                 <p className="text-xs font-bold text-amber-800 font-quran">
-                  أحكام الإدغام: المتماثلين والمتجانسين والمتقاربين
+                  {selectedLockedCourse.badge || 'حقيبة تدريبية تخصصية'}
                 </p>
               </div>
             </div>
 
-            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 text-xs sm:text-sm text-slate-800 space-y-2 leading-relaxed font-tajawal">
+            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 text-xs sm:text-sm text-slate-800 space-y-2.5 leading-relaxed font-tajawal">
               <p className="font-bold text-amber-950 flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <span>شرط فتح الحقيبة التدريبية:</span>
+                <span>حالة الوصول للحقيبة:</span>
               </p>
-              <p>
-                عزيزي الطالب، طبقاً للمنهاج التعليمي المعتمد، تُفتح هذه الحقيبة تلقائياً بعد <strong>إتمام ودراسة الحقيبة الأولى (التقاء الساكنين)</strong> واجتياز اختبارها النهائي الشامل بنسبة <strong>90% فأكثر</strong>.
-              </p>
-              <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-xs font-quran font-bold text-slate-700">
-                <span>حالة حقيبة التقاء الساكنين لديك:</span>
-                <span className={isSakinanDone ? 'text-emerald-700' : 'text-amber-800'}>
-                  {isSakinanDone ? 'تم الاجتياز بنجاح ✓' : 'لم يتم اجتياز الاختبار بعد'}
-                </span>
-              </div>
+
+              {selectedLockedCourse.pricing?.isPaid ? (
+                <div className="space-y-2">
+                  <p>
+                    هذه الحقيبة <strong>محتوى مدفوع ({selectedLockedCourse.pricing.priceText || 'اشتراك خاص'})</strong> ومقفلة حالياً.
+                  </p>
+                  <div className="p-3 bg-amber-100/80 rounded-xl border border-amber-300 text-xs text-amber-950 font-bold space-y-1">
+                    <p>✨ لا تفتح الدروس والوحدات والاختبار إلا بعد موافقة المعلم واعتماد الوصول.</p>
+                    <p className="text-slate-700 font-normal">يمكنك معاينة تفاصيل محاور الحقيبة، والتواصل مع المعلم للاشتراك.</p>
+                  </div>
+                </div>
+              ) : selectedLockedCourse.id === 'idgham' ? (
+                <div className="space-y-2">
+                  <p>
+                    عزيزي الطالب، طبقاً للمنهاج التعليمي المعتمد، تُفتح هذه الحقيبة تلقائياً بعد <strong>إتمام ودراسة الحقيبة الأولى (التقاء الساكنين)</strong> واجتياز اختبارها النهائي الشامل بنسبة <strong>90% فأكثر</strong>.
+                  </p>
+                  <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-xs font-quran font-bold text-slate-700">
+                    <span>حالة حقيبة التقاء الساكنين لديك:</span>
+                    <span className={isSakinanDone ? 'text-emerald-700 font-black' : 'text-amber-800 font-black'}>
+                      {isSakinanDone ? 'تم الاجتياز بنجاح ✓' : 'لم يتم اجتياز الاختبار بعد'}
+                    </span>
+                  </div>
+                </div>
+              ) : selectedLockedCourse.status === 'coming_soon' ? (
+                <p>
+                  هذه الحقيبة قيد الإعداد والإطلاق قريباً. يمكنك معاينة أهدافها والانضمام لقائمة الانتظار لحجز مقعدك أولاً بأول.
+                </p>
+              ) : (
+                <p>
+                  هذه الحقيبة مغلقة حالياً وتتطلب إذن المعلم أو تفعيلها من لوحة الإدارة.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
                 onClick={() => {
                   setLockedCourseModal(null);
-                  onSelectCourse('sakinan');
+                  onSelectCourse(selectedLockedCourse.id);
                 }}
                 className="flex-1 bg-emerald-900 hover:bg-emerald-950 text-amber-300 font-bold font-quran py-3 px-4 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer border border-amber-400/40"
               >
-                <span>الانتقال لدراسة حقيبة التقاء الساكنين</span>
+                <span>معاينة تفاصيل ومحاور الحقيبة</span>
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setLockedCourseModal(null)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold font-quran py-3 px-4 rounded-xl text-sm transition-all"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold font-quran py-3 px-4 rounded-xl text-sm transition-all cursor-pointer"
               >
                 إغلاق
               </button>

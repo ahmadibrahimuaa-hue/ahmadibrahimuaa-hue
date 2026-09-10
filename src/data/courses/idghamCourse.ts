@@ -1432,7 +1432,7 @@ export const IDGHAM_COURSE: Course = {
   title: 'أحكام الإدغام: المتماثلين والمتجانسين والمتقاربين (برواية حفص عن عاصم)',
   shortTitle: 'أحكام الإدغام (المثلين، المتجانسين، المتقاربين)',
   subtitle: 'منهج تعليمي تطبيقي متدرج لمعلمي القرآن الكريم والقراءات',
-  badge: 'الحقيبة الثانية',
+  badge: 'الحقيبة الثانية (المتوسط)',
   iconName: 'BookOpen',
   description: 'حقيبة تعليمية متخصصة ومفصلة في أحكام إدغام المتماثلين (المثلين) والمتجانسين والمتقاربين برواية حفص عن عاصم من طريق الشاطبية، متضمنة الأصول والاستثناءات والسكتات وضبط المصحف.',
   author: 'أحمد إبراهيم',
@@ -1442,6 +1442,21 @@ export const IDGHAM_COURSE: Course = {
   exceptionWords: IDGHAM_EXCEPTION_WORDS,
   quranExamples: IDGHAM_QURAN_EXAMPLES,
   comprehensiveExamBank: IDGHAM_COMPREHENSIVE_EXAM,
+  status: 'available',
+  level: 'intermediate',
+  levelText: 'حقيبة المستوى المتوسط (الإدغام العام)',
+  targetAudience: 'المجتازون للمستوى التأسيسي، ومعلمو التجويد الميدانيين',
+  pricing: {
+    isPaid: false,
+    priceText: 'متاحة عقب اجتياز الحقيبة الأولى',
+  },
+  prerequisites: ['اجتياز اختبار حقيبة التقاء الساكنين بنسبة 90% فأعلى'],
+  expectedDuration: '8 محاضرات تدريبية وتطبيقية',
+  features: [
+    '3 أبواب علمية تخصصية موسعة',
+    'تأصيل أوجه الشاطبية واستثناءات السكتات',
+    'اختبار نهائي تخصصي وشهادة إتقان معتمدة'
+  ],
   books: [
     {
       title: "الرعاية لترتيل القراءة وتحقيق لفظ التلاوة",

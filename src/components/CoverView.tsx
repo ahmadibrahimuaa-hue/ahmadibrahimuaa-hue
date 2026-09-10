@@ -1,6 +1,6 @@
 import React from 'react';
 import { Course } from '../types';
-import { Sparkles, BookOpen, UserCheck, GraduationCap, Printer, Layers, Award, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { BookOpen, UserCheck, GraduationCap, Printer, Layers, Award, ShieldAlert, CheckCircle2, Bookmark } from 'lucide-react';
 
 interface CoverViewProps {
   course?: Course;
@@ -49,12 +49,12 @@ export const CoverView: React.FC<CoverViewProps> = ({
 
         {/* Bismillah Header */}
         <div className="pt-2 font-quran text-2xl sm:text-3xl text-amber-300 font-bold tracking-wide">
-          بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ
+          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
         </div>
 
         {/* Header Badge */}
         <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-slate-950 px-5 py-1.5 rounded-full font-quran text-xs sm:text-sm font-extrabold shadow-lg">
-          <Sparkles className="w-4 h-4 fill-slate-950" />
+          <Award className="w-4 h-4 text-slate-950" />
           <span>{badge}</span>
         </div>
 
@@ -105,7 +105,7 @@ export const CoverView: React.FC<CoverViewProps> = ({
 
           <div className="bg-white/5 border border-amber-400/20 rounded-2xl p-4 space-y-1.5">
             <div className="flex items-center gap-2 text-amber-300 font-bold font-quran text-sm">
-              <Sparkles className="w-4 h-4 text-amber-400" />
+              <Bookmark className="w-4 h-4 text-amber-400" />
               <span>خرائط تشجير مفاهيمية</span>
             </div>
             <p className="text-xs text-emerald-200/80 font-tajawal">
@@ -143,12 +143,6 @@ export const CoverView: React.FC<CoverViewProps> = ({
             <BookOpen className="w-5 h-5 text-slate-950" />
             <span>تصفح أبواب المنهج التدريبي</span>
           </button>
-        </div>
-
-        {/* Bottom Ornament */}
-        <div className="pt-4 flex items-center justify-center gap-2 text-xs text-emerald-300/80 font-quran">
-          <CheckCircle2 className="w-4 h-4 text-amber-400" />
-          <span>حقوق الإعداد محفوظة للمعلمين والأكاديميات القرأنية • طبعة تدريبية محققة</span>
         </div>
 
       </div>

@@ -17,10 +17,10 @@ export const SummaryTableView: React.FC<SummaryTableViewProps> = ({ course }) =>
   const topicName = course?.shortTitle || course?.title || 'التقاء الساكنين';
 
   const filteredData = tableData.filter((row) =>
-    row.type.includes(searchQuery) ||
-    row.disposalMethod.includes(searchQuery) ||
-    row.exampleText.includes(searchQuery) ||
-    row.tajweedRule.includes(searchQuery)
+    (row.type || '').includes(searchQuery) ||
+    (row.disposalMethod || '').includes(searchQuery) ||
+    (row.exampleText || '').includes(searchQuery) ||
+    (row.tajweedRule || '').includes(searchQuery)
   );
 
   return (

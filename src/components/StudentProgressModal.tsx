@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Award, CheckCircle2, Circle, RefreshCw, Sparkles, BookOpen, Layers, Trophy, Check, BookMarked, ExternalLink } from 'lucide-react';
+import { X, Award, CheckCircle2, Circle, RefreshCw, Sparkles, BookOpen, Layers, Trophy, Check, BookMarked, ExternalLink, Share2 } from 'lucide-react';
 import { 
   getStudentProgress, 
   loadMultiProgress,
@@ -11,6 +11,9 @@ import {
   resetProgress,
   SingleCourseProgress
 } from '../utils/studentProgressStorage';
+import { getStudentProfile } from '../utils/studentStorage';
+import { getCourseBadges } from '../utils/badgeSystem';
+import { ShareAchievementModal } from './ShareAchievementModal';
 import { ALL_COURSES, getCourseById } from '../data/courses';
 
 interface StudentProgressModalProps {
@@ -31,6 +34,7 @@ export const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
   const [selectedCourseId, setSelectedCourseId] = useState<string>(activeCourseId);
   const [multiData, setMultiData] = useState(() => loadMultiProgress());
   const [isResetting, setIsResetting] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   useEffect(() => {
     setSelectedCourseId(activeCourseId);
@@ -235,7 +239,7 @@ export const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
 
             <div className="space-y-2">
               {currentCourseObj.units.map((unit, idx) => {
-                const isCompleted = currentProg.completedUnitNumbers.includes(unit.unitNumber);
+                const isCompleted = (currentProg.completedUnitNumbers || []).includes(unit.unitNumber);
                 return (
                   <div
                     key={unit.id}
@@ -290,7 +294,7 @@ export const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {sectionsList.map((sec) => {
-                const isRead = currentProg.readSections.includes(sec.id);
+                const isRead = (currentProg.readSections || []).includes(sec.id);
                 return (
                   <div
                     key={sec.id}
@@ -360,7 +364,7 @@ export const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-950 p-4 border-t border-slate-800 flex items-center justify-between text-xs">
+        <div className="bg-slate-950 p-4 border-t border-slate-800 flex items-center justify-between text-xs flex-wrap gap-2">
           <button
             onClick={handleReset}
             disabled={isResetting}
@@ -370,15 +374,36 @@ export const StudentProgressModal: React.FC<StudentProgressModalProps> = ({
             <span>إعادة ضبط تقدم الدورة الحالية</span>
           </button>
 
-          <button
-            onClick={onClose}
-            className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold font-quran px-5 py-2 rounded-xl transition-all cursor-pointer"
-          >
-            إغلاق
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsShareModalOpen(true)}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold font-quran px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            >
+              <Share2 className="w-4 h-4 text-slate-950" />
+              <span>مشاركة الإنجاز</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold font-quran px-5 py-2 rounded-xl transition-all cursor-pointer"
+            >
+              إغلاق
+            </button>
+          </div>
         </div>
 
       </div>
+
+      {/* Share Achievement Modal */}
+      <ShareAchievementModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        activeCourseId={selectedCourseId}
+        studentProfile={getStudentProfile()}
+        progress={currentProg}
+        badges={getCourseBadges(currentProg, selectedCourseId)}
+        percentage={percentage}
+      />
     </div>
   );
 };

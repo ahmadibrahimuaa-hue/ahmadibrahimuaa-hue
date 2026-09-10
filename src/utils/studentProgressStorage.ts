@@ -1,6 +1,9 @@
 import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getStudentProfile, clearStudentProfile, clearAllSubmissions } from './studentStorage';
+import { Course } from '../types';
+import { getCourseById } from '../data/courses';
+import { getCourseBadges, notifyBadgeUnlocked } from './badgeSystem';
 
 export interface SingleCourseProgress {
   completedUnitNumbers: number[]; // e.g. [1, 2, 3]
@@ -127,8 +130,10 @@ const syncProgressToFirestore = async (courseId: string, data: SingleCourseProgr
 
 export const markUnitCompleted = async (unitNumber: number, completed: boolean = true, courseId: string = 'sakinan') => {
   const multi = { ...loadMultiProgress() };
-  const prog = { ...getStudentProgress(courseId) };
+  const prevProg = { ...getStudentProgress(courseId) };
+  const prog = { ...prevProg };
   
+  const wasAlreadyCompleted = prog.completedUnitNumbers.includes(unitNumber);
   let set = new Set(prog.completedUnitNumbers);
   if (completed) {
     set.add(unitNumber);
@@ -143,6 +148,20 @@ export const markUnitCompleted = async (unitNumber: number, completed: boolean =
 
   saveProgressLocally(multi);
   await syncProgressToFirestore(courseId, prog);
+
+  // If newly completed, trigger celebratory badge toast
+  if (completed && !wasAlreadyCompleted) {
+    const badges = getCourseBadges(prog, courseId);
+    const unitBadge = badges.find((b) => b.id === `unit_${courseId}_${unitNumber}` || (b.category === 'unit' && b.unitNumber === unitNumber));
+    if (unitBadge && unitBadge.isUnlocked) {
+      notifyBadgeUnlocked(unitBadge);
+    }
+    // Check if all units completed
+    const allUnitsBadge = badges.find((b) => b.id === `all_units_${courseId}`);
+    if (allUnitsBadge && allUnitsBadge.isUnlocked && !prevProg.completedUnitNumbers.length) {
+      setTimeout(() => notifyBadgeUnlocked(allUnitsBadge), 1200);
+    }
+  }
 };
 
 export const markSectionRead = async (sectionId: string, courseId: string = 'sakinan') => {
@@ -176,6 +195,20 @@ export const recordExamScore = async (scorePercentage: number, courseId: string 
 
   saveProgressLocally(multi);
   await syncProgressToFirestore(courseId, prog);
+
+  // Check and trigger exam badges
+  const badges = getCourseBadges(prog, courseId);
+  if (scorePercentage >= 100) {
+    const perfectBadge = badges.find((b) => b.id === `exam_perfect_${courseId}`);
+    if (perfectBadge) {
+      notifyBadgeUnlocked(perfectBadge);
+    }
+  } else if (scorePercentage >= 90) {
+    const passedBadge = badges.find((b) => b.id === `exam_distinction_${courseId}`);
+    if (passedBadge) {
+      notifyBadgeUnlocked(passedBadge);
+    }
+  }
 };
 
 export const isCoursePassed = (courseId: string = 'sakinan'): boolean => {
@@ -183,13 +216,77 @@ export const isCoursePassed = (courseId: string = 'sakinan'): boolean => {
   return Boolean(prog.examCompleted && prog.examBestScore !== null && prog.examBestScore >= 90);
 };
 
-export const isCourseUnlocked = (courseId: string, isTeacherMode: boolean = false): boolean => {
+const UNLOCKED_COURSES_KEY = 'tajweed_unlocked_courses_list';
+
+export const getStudentUnlockedCourses = (): string[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(UNLOCKED_COURSES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const grantCourseAccessToStudent = (courseId: string): void => {
+  const current = getStudentUnlockedCourses();
+  if (!current.includes(courseId)) {
+    const updated = [...current, courseId];
+    localStorage.setItem(UNLOCKED_COURSES_KEY, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tajweed_unlocked_updated', { detail: updated }));
+    }
+  }
+};
+
+export const revokeCourseAccessFromStudent = (courseId: string): void => {
+  const current = getStudentUnlockedCourses();
+  const updated = current.filter((id) => id !== courseId);
+  localStorage.setItem(UNLOCKED_COURSES_KEY, JSON.stringify(updated));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tajweed_unlocked_updated', { detail: updated }));
+  }
+};
+
+export const isCourseUnlocked = (
+  courseId: string, 
+  isTeacherMode: boolean = false,
+  courseObj?: Course
+): boolean => {
+  // Teachers always have full access to all courses
   if (isTeacherMode) return true;
-  if (courseId === 'sakinan') return true;
+
+  // If this specific student device was granted access by the instructor
+  const explicitlyUnlocked = getStudentUnlockedCourses();
+  if (explicitlyUnlocked.includes(courseId)) {
+    return true;
+  }
+
+  const course = courseObj || getCourseById(courseId);
+  if (!course) return false;
+
+  // If course status is not 'available' (e.g. 'locked' or 'coming_soon') -> LOCKED
+  if (course.status === 'locked' || course.status === 'coming_soon') {
+    return false;
+  }
+
+  // If course is marked as paid -> LOCKED for students until payment/approval
+  if (course.pricing?.isPaid) {
+    return false;
+  }
+
+  // Default introductory course 'sakinan' is unlocked if available and free
+  if (courseId === 'sakinan') {
+    return true;
+  }
+
+  // Idgham course requires passing Sakinan exam
   if (courseId === 'idgham') {
     return isCoursePassed('sakinan');
   }
-  return true;
+
+  // Any other course is accessible only if available and free
+  return course.status === 'available' && !course.pricing?.isPaid;
 };
 
 export const calculateProgressPercentage = (prog?: SingleCourseProgress, totalUnitsCount: number = 5): number => {

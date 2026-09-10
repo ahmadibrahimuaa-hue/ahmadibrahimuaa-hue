@@ -51,6 +51,24 @@
         "updatedAt": { "type": "number" }
       },
       "required": ["name", "username", "password", "role", "status", "referralCode", "createdAt"]
+    },
+    "course_waitlist": {
+      "title": "Course Waitlist & Subscription Requests",
+      "description": "Student waitlist registrations and paid course subscription unlock requests",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "studentName": { "type": "string" },
+        "phone": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "paymentStatus": { "type": "string", "enum": ["unpaid", "paid"] },
+        "registeredAt": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "trainerName": { "type": "string" }
+      },
+      "required": ["courseId", "courseTitle", "studentName", "status", "registeredAt"]
     }
   }
 }

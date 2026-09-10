@@ -185,8 +185,17 @@ export interface ExtractionExercise {
   optionsForMethod: string[];
 }
 
+export type CourseStatus = 'available' | 'coming_soon' | 'locked';
+export type CourseLevel = 'beginner' | 'intermediate' | 'advanced' | 'master';
+
+export interface CoursePreviewHighlight {
+  title: string;
+  description: string;
+  badge?: string;
+}
+
 export interface Course {
-  id: string; // e.g. 'sakinan' | 'idgham'
+  id: string; // e.g. 'sakinan' | 'idgham' | 'makharij' | 'ijazah'
   title: string;
   shortTitle: string;
   subtitle: string;
@@ -202,6 +211,21 @@ export interface Course {
   comprehensiveExamBank: ComprehensiveExamQuestion[];
   books?: ScholarlyBook[];
   rulesCheatSheetMarkdown?: string;
+  // Flexible Bag Management Schema Properties:
+  status?: CourseStatus; // 'available' (نشطة) | 'coming_soon' (قريباً - محتوى مدفوع/قيد التطوير) | 'locked'
+  level?: CourseLevel; // المستوى الأكاديمي
+  levelText?: string; // e.g. "المستوى الأول: المبتدئ"
+  targetAudience?: string; // الفئة المستهدفة
+  pricing?: {
+    isPaid: boolean;
+    priceText?: string;
+    note?: string;
+  };
+  prerequisites?: string[];
+  expectedDuration?: string;
+  features?: string[];
+  waitlistCount?: number;
+  previewHighlights?: CoursePreviewHighlight[];
 }
 
 export interface TrainerAccount {

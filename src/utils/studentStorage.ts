@@ -135,6 +135,8 @@ export const getStudentSubmissions = (): StudentSubmission[] => {
   }
 };
 
+export const getSubmissionsList = getStudentSubmissions;
+
 export const getStudentSubmissionsAsync = async (): Promise<StudentSubmission[]> => {
   try {
     const colRef = collection(db, 'submissions');

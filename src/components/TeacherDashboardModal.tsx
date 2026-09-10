@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   UserCheck, ShieldCheck, Award, Trash2, Download, Search, X, 
   CheckCircle2, AlertCircle, FileSpreadsheet, Lock, RefreshCw, Eye, Loader2, Wifi,
-  PlusCircle, Edit3, HelpCircle, BookOpen, Layers, Check, RotateCcw, AlertTriangle, Sparkles,
-  Upload, Image as ImageIcon, Palette, Users, Key, Copy, Shield, ExternalLink
+  PlusCircle, Edit3, HelpCircle, BookOpen, Layers, Check, RotateCcw, AlertTriangle,
+  Upload, Image as ImageIcon, Palette, Users, Key, Copy, Shield, ExternalLink, Briefcase, BarChart3
 } from 'lucide-react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -30,13 +30,17 @@ import {
 } from '../utils/certificateConfigStorage';
 import { CertificateTemplateView } from './CertificateTemplateView';
 import { AdminTrainersPanel } from './AdminTrainersPanel';
+import { BagManagementPanel } from './BagManagementPanel';
+import { TeacherWaitlistPanel } from './TeacherWaitlistPanel';
+import { TeacherAnalyticsDashboard } from './TeacherAnalyticsDashboard';
 import { getActiveTrainersList } from '../utils/trainerStorage';
+import { subscribeWaitlistEntries, WaitlistEntry } from '../utils/waitlistStorage';
 
 interface TeacherDashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLockTeacherMode: () => void;
-  initialTab?: 'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers';
+  initialTab?: 'analytics' | 'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers' | 'bag_management' | 'waitlist';
   activeCourseId?: string;
   authTrainer?: TrainerAccount | null;
   authRole?: 'super_admin' | 'trainer';
@@ -68,9 +72,22 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
   authTrainer = null,
   authRole = 'trainer',
 }) => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers'>(
+  const [activeTab, setActiveTab] = useState<'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers' | 'bag_management' | 'waitlist'>(
     initialTab
   );
+
+  // Waitlist Pending Counter
+  const [pendingWaitlistCount, setPendingWaitlistCount] = useState<number>(0);
+  const [waitlistTotalCount, setWaitlistTotalCount] = useState<number>(0);
+
+  useEffect(() => {
+    const unsub = subscribeWaitlistEntries((entries) => {
+      const pending = entries.filter((e) => e.status === 'pending').length;
+      setPendingWaitlistCount(pending);
+      setWaitlistTotalCount(entries.length);
+    });
+    return () => unsub();
+  }, []);
 
   // Selected Course within Teacher Dashboard
   const [selectedCourseId, setSelectedCourseId] = useState<string>(activeCourseId || 'sakinan');
@@ -433,26 +450,31 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
   };
 
   // Filters for Submissions
-  const filteredSubmissions = submissions.filter(
-    (s) =>
-      s.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.unitTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.testType.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSubmissions = submissions.filter((s) => {
+    const sTerm = (searchTerm || '').toLowerCase();
+    return (
+      (s.studentName || '').toLowerCase().includes(sTerm) ||
+      (s.unitTitle || '').toLowerCase().includes(sTerm) ||
+      (s.testType || '').toLowerCase().includes(sTerm)
+    );
+  });
 
   // Filters for Unit Questions
-  const filteredUnitQs = unitQuestions.filter(
-    (q) =>
-      q.question.toLowerCase().includes(questionSearch.toLowerCase()) ||
-      q.explanation.toLowerCase().includes(questionSearch.toLowerCase())
-  );
+  const filteredUnitQs = unitQuestions.filter((q) => {
+    const qTerm = (questionSearch || '').toLowerCase();
+    return (
+      (q.question || '').toLowerCase().includes(qTerm) ||
+      (q.explanation || '').toLowerCase().includes(qTerm)
+    );
+  });
 
   // Filters for Comprehensive Questions
   const filteredExamQs = comprehensiveQuestions.filter((q) => {
+    const qTerm = (questionSearch || '').toLowerCase();
     const matchesSearch =
-      q.question.toLowerCase().includes(questionSearch.toLowerCase()) ||
-      (q.contextText && q.contextText.toLowerCase().includes(questionSearch.toLowerCase())) ||
-      q.explanation.toLowerCase().includes(questionSearch.toLowerCase());
+      (q.question || '').toLowerCase().includes(qTerm) ||
+      (q.contextText ? q.contextText.toLowerCase().includes(qTerm) : false) ||
+      (q.explanation || '').toLowerCase().includes(qTerm);
     const matchesUnit = selectedUnitNumber === 0 || q.unitNumber === selectedUnitNumber;
     const matchesType = examTypeFilter === 'all' || q.type === examTypeFilter;
     return matchesSearch && matchesUnit && matchesType;
@@ -535,7 +557,7 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
         <div className="bg-slate-950 px-5 py-2.5 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-xs text-amber-300 font-bold font-quran flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
               اختر الحقيبة التدريبية المراد إدارتها:
             </span>
             <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-700">
@@ -582,6 +604,18 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
         <div className="bg-slate-900 px-5 pt-3 pb-0 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2 shrink-0">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'analytics'
+                  ? 'bg-amber-400 text-slate-950 font-extrabold shadow-md ring-2 ring-amber-300'
+                  : 'bg-slate-800/80 text-amber-300 hover:bg-slate-800 hover:text-white border border-amber-500/30'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 text-amber-400" />
+              <span>📊 لوحة الإحصائيات والتحليلات البيانية</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('submissions')}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-t-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'submissions'
@@ -626,7 +660,36 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
               }`}
             >
               <Palette className="w-4 h-4 text-amber-400" />
-              <span>🎓 تعديل وتصميم الشهادات (الخلفية والمواضع)</span>
+              <span>🎓 تصميم الشهادات</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('bag_management')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'bag_management'
+                  ? 'bg-emerald-500 text-slate-950 font-extrabold shadow-md ring-2 ring-emerald-300'
+                  : 'bg-emerald-950/90 text-emerald-300 hover:bg-emerald-900 border border-emerald-500/40'
+              }`}
+            >
+              <Briefcase className="w-4 h-4 text-emerald-400" />
+              <span>🗂️ إدارة الحقائب والدروس والأسعار</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('waitlist')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap relative ${
+                activeTab === 'waitlist'
+                  ? 'bg-amber-400 text-slate-950 font-extrabold shadow-md ring-2 ring-amber-300'
+                  : 'bg-slate-800/90 text-amber-300 hover:bg-slate-800 hover:text-white border border-amber-500/40'
+              }`}
+            >
+              <Users className="w-4 h-4 text-amber-400" />
+              <span>📋 طلبات الانتظار والاشتراكات</span>
+              {pendingWaitlistCount > 0 && (
+                <span className="bg-rose-500 text-white text-[11px] font-mono px-2 py-0.5 rounded-full font-bold animate-pulse shadow">
+                  {pendingWaitlistCount} جديد
+                </span>
+              )}
             </button>
 
             {authRole === 'super_admin' && (
@@ -647,6 +710,13 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
 
         {/* Dynamic Content Views */}
         <div className="p-5 overflow-y-auto flex-1 space-y-6">
+
+          {/* TAB 0: ANALYTICS & STATISTICAL DASHBOARD */}
+          {activeTab === 'analytics' && (
+            <TeacherAnalyticsDashboard
+              activeCourseId={selectedCourseId}
+            />
+          )}
 
           {/* TAB 1: SUBMISSIONS LIST */}
           {activeTab === 'submissions' && (
@@ -1611,6 +1681,23 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
                 setTrainerFilter(trId);
                 setActiveTab('submissions');
               }}
+            />
+          )}
+
+          {/* TAB 6: BAGS & LESSONS MANAGEMENT */}
+          {activeTab === 'bag_management' && (
+            <BagManagementPanel
+              activeCourseId={selectedCourseId}
+              onSelectCourseToView={(cId) => {
+                setSelectedCourseId(cId);
+              }}
+            />
+          )}
+
+          {/* TAB 7: WAITLIST & ENROLLMENT MANAGEMENT */}
+          {activeTab === 'waitlist' && (
+            <TeacherWaitlistPanel
+              activeCourseId={selectedCourseId}
             />
           )}
 

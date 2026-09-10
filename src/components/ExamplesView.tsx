@@ -37,13 +37,13 @@ export const ExamplesView: React.FC<ExamplesViewProps> = ({ course }) => {
   const filteredExamples = examples.filter((ex) => {
     const matchesMethod =
       selectedMethod === 'ALL' ||
-      ex.method.includes(selectedMethod) ||
-      ex.reason.includes(selectedMethod);
+      (ex.method || '').includes(selectedMethod) ||
+      (ex.reason || '').includes(selectedMethod);
     const matchesSearch =
-      ex.targetPhrase.includes(searchQuery) ||
-      ex.surahName.includes(searchQuery) ||
-      ex.ayahText.includes(searchQuery) ||
-      ex.reason.includes(searchQuery);
+      (ex.targetPhrase || '').includes(searchQuery) ||
+      (ex.surahName || '').includes(searchQuery) ||
+      (ex.ayahText || '').includes(searchQuery) ||
+      (ex.reason || '').includes(searchQuery);
     return matchesMethod && matchesSearch;
   });
 

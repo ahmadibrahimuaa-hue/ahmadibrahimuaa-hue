@@ -7,9 +7,9 @@ export const TheoryView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const filteredChapters = THEORY_CHAPTERS.filter(ch => 
-    ch.title.includes(searchQuery) ||
-    ch.subtitle.includes(searchQuery) ||
-    ch.content.includes(searchQuery)
+    (ch.title || '').includes(searchQuery) ||
+    (ch.subtitle || '').includes(searchQuery) ||
+    (ch.content || '').includes(searchQuery)
   );
 
   const currentChapter = THEORY_CHAPTERS.find(ch => ch.id === activeChapterId) || THEORY_CHAPTERS[0];

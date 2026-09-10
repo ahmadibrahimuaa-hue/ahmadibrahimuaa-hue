@@ -15,23 +15,39 @@ import { TeacherDashboardModal } from './components/TeacherDashboardModal';
 import { TeacherAuthModal } from './components/TeacherAuthModal';
 import { StudentProgressModal } from './components/StudentProgressModal';
 import { StudentRegistrationModal } from './components/StudentRegistrationModal';
+import { LockedCoursePreview } from './components/LockedCoursePreview';
+import { BagManagementPanel } from './components/BagManagementPanel';
+import { BadgeEarnedToast } from './components/BadgeEarnedToast';
+import { QuranFontModal } from './components/QuranFontModal';
 import { getStudentProgress, subscribeStudentProgress, calculateProgressPercentage, markSectionRead, isCourseUnlocked, isCoursePassed } from './utils/studentProgressStorage';
 import { getStudentProfile, subscribeStudentProfile } from './utils/studentStorage';
 import { getCurrentAuthTrainer, setCurrentAuthTrainer, SUPER_ADMIN_ACCOUNT } from './utils/trainerStorage';
-import { ALL_COURSES, SAKINAN_COURSE, getCourseById } from './data/courses';
+import { getAllCourses, SAKINAN_COURSE, getCourseById } from './data/courses';
+import { subscribeCourses } from './utils/courseCustomStorage';
 import { Course, StudentProfile, TrainerAccount } from './types';
 import { SUMMARY_TABLE_DATA } from './data/summaryData';
 import { WhatsAppSupport, FloatingWhatsAppSupport } from './components/WhatsAppSupport';
 import { 
-  Sparkles, BookOpen, GraduationCap, Table, Bookmark, Book, 
-  Layers, ChevronRight, ChevronLeft, ShieldCheck, Lock, CheckCircle2, X, AlertTriangle, ArrowLeft 
+  BookOpen, GraduationCap, Table, Bookmark, Book, 
+  Layers, ChevronRight, ChevronLeft, ShieldCheck, Lock, CheckCircle2, X, AlertTriangle, ArrowLeft, Briefcase, Award 
 } from 'lucide-react';
 
 export default function App() {
+  const [coursesList, setCoursesList] = useState<Course[]>(() => getAllCourses());
   const [activeCourseId, setActiveCourseId] = useState<string>('sakinan');
   const [activeTab, setActiveTab] = useState<string>('cover');
   const [selectedUnitIndex, setSelectedUnitIndex] = useState<number>(0);
   const [isExamActive, setIsExamActive] = useState<boolean>(false);
+  const [showBagManagementModal, setShowBagManagementModal] = useState<boolean>(false);
+  const [showFontModal, setShowFontModal] = useState<boolean>(false);
+
+  // Subscribe to dynamic courses changes
+  useEffect(() => {
+    const unsub = subscribeCourses((updated) => {
+      setCoursesList(updated);
+    });
+    return () => unsub();
+  }, []);
 
   const activeCourse: Course = getCourseById(activeCourseId) || SAKINAN_COURSE;
   const totalUnitsInCourse = activeCourse && activeCourse.units ? activeCourse.units.length : 5;
@@ -67,7 +83,7 @@ export default function App() {
 
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showTeacherDashboard, setShowTeacherDashboard] = useState<boolean>(false);
-  const [teacherDashboardTab, setTeacherDashboardTab] = useState<'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers'>('submissions');
+  const [teacherDashboardTab, setTeacherDashboardTab] = useState<'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers' | 'bag_management' | 'waitlist'>('submissions');
   const [authTrainer, setAuthTrainer] = useState<TrainerAccount | null>(() => getCurrentAuthTrainer());
   const [authRole, setAuthRole] = useState<'super_admin' | 'trainer'>(() => {
     const curr = getCurrentAuthTrainer();
@@ -141,7 +157,21 @@ export default function App() {
     window.print();
   };
 
+  const [, setUnlockUpdateCounter] = useState(0);
+
+  useEffect(() => {
+    const handleUnlockEvent = () => {
+      setUnlockUpdateCounter((c) => c + 1);
+    };
+    window.addEventListener('tajweed_unlocked_updated', handleUnlockEvent);
+    return () => window.removeEventListener('tajweed_unlocked_updated', handleUnlockEvent);
+  }, []);
+
   const currentUnit = activeCourse.units[selectedUnitIndex] || activeCourse.units[0];
+  const isCourseActiveUnlocked = isCourseUnlocked(activeCourseId, isTeacherMode, activeCourse);
+  const isComingSoon = activeCourse.status === 'coming_soon';
+  const isLockedStatus = activeCourse.status === 'locked';
+  const shouldShowLockedPreview = !isTeacherMode && (!isCourseActiveUnlocked || isComingSoon || isLockedStatus);
 
   return (
     <div className={`min-h-screen font-tajawal flex flex-col justify-between selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300 ${
@@ -152,16 +182,12 @@ export default function App() {
         <Header
           activeCourse={activeCourse}
           onSelectCourse={(cId) => {
-            const unlocked = isCourseUnlocked(cId, isTeacherMode);
-            if (!unlocked) {
-              setShowCourseLockedModal(true);
-              return;
-            }
             setActiveCourseId(cId);
             setActiveTab('cover');
             setSelectedUnitIndex(0);
           }}
           onReturnToHome={() => setActiveTab('home')}
+          onOpenBagManagement={() => setShowBagManagementModal(true)}
           activeTab={activeTab}
           setActiveTab={(tab) => {
             if (isExamActive && tab !== 'exam') return;
@@ -189,6 +215,7 @@ export default function App() {
           isNightMode={isNightMode}
           setIsNightMode={setIsNightMode}
           onOpenProgressModal={() => setShowProgressModal(true)}
+          onOpenFontModal={() => setShowFontModal(true)}
           progressPercentage={progressPct}
           completedUnitsCount={completedUnitsCount}
         />
@@ -197,17 +224,20 @@ export default function App() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
           
           {/* Student Registration Bar (Only visible in Student Mode) */}
-          {!isTeacherMode && activeTab !== 'home' && (
+          {!isTeacherMode && activeTab !== 'home' && !shouldShowLockedPreview && (
             <div className="no-print">
               <StudentBar 
+                activeCourseId={activeCourseId}
                 onOpenProgressModal={() => setShowProgressModal(true)} 
                 onOpenRegistrationModal={() => setShowRegistrationModal(true)}
+                currentUnitNumber={currentUnit?.unitNumber}
+                currentUnitTitle={currentUnit?.title}
               />
             </div>
           )}
 
           {/* Unit Selector Bar when on 'units' tab */}
-          {activeTab === 'units' && (
+          {activeTab === 'units' && !shouldShowLockedPreview && activeCourse.units && activeCourse.units.length > 0 && (
             <div className="no-print bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-xs font-bold font-quran text-slate-800">
                 <Layers className={`w-4 h-4 ${activeCourseId === 'idgham' ? 'text-purple-700' : 'text-emerald-800'}`} />
@@ -235,59 +265,94 @@ export default function App() {
           )}
 
           {/* Active View Render */}
-          {activeTab === 'home' && (
+          {activeTab === 'home' ? (
             <PlatformHome
               onSelectCourse={(cId) => {
-                const unlocked = isCourseUnlocked(cId, isTeacherMode);
-                if (!unlocked) {
-                  setShowCourseLockedModal(true);
-                  return;
-                }
                 setActiveCourseId(cId);
                 setActiveTab('cover');
                 setSelectedUnitIndex(0);
               }}
               onOpenTeacherDashboard={() => setShowTeacherDashboard(true)}
               onOpenProgressModal={() => setShowProgressModal(true)}
+              onOpenBagManagement={() => setShowBagManagementModal(true)}
               isTeacherMode={isTeacherMode}
             />
-          )}
-          {activeTab === 'cover' && (
-            <CoverView
+          ) : shouldShowLockedPreview ? (
+            <LockedCoursePreview
               course={activeCourse}
-              onStartStudy={() => {
-                if (!isTeacherMode && (!studentProfile || !studentProfile.name || !studentProfile.name.trim())) {
-                  setShowRegistrationModal(true);
-                  return;
-                }
-                setActiveTab('units');
+              onReturnToActiveCourse={(cId) => {
+                setActiveCourseId(cId || 'sakinan');
+                setActiveTab('cover');
+                setSelectedUnitIndex(0);
+              }}
+              onReturnToHome={() => {
+                setActiveTab('home');
               }}
               isTeacherMode={isTeacherMode}
-              setIsTeacherMode={setIsTeacherMode}
-              onPrint={handlePrint}
             />
+          ) : (
+            <>
+              {activeTab === 'cover' && (
+                <CoverView
+                  course={activeCourse}
+                  onStartStudy={() => {
+                    if (!isTeacherMode && (!studentProfile || !studentProfile.name || !studentProfile.name.trim())) {
+                      setShowRegistrationModal(true);
+                      return;
+                    }
+                    setActiveTab('units');
+                  }}
+                  isTeacherMode={isTeacherMode}
+                  setIsTeacherMode={setIsTeacherMode}
+                  onPrint={handlePrint}
+                />
+              )}
+              {activeTab === 'units' && (
+                currentUnit ? (
+                  <UnitView key={`${activeCourseId}_${currentUnit.id}`} unit={currentUnit} course={activeCourse} isTeacherMode={isTeacherMode} />
+                ) : (
+                  <div className="bg-white rounded-3xl p-10 border-2 border-dashed border-emerald-300 text-center space-y-4 font-tajawal">
+                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-800">
+                      <BookOpen className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-xl font-bold font-quran text-slate-900">لا توجد أبواب تعليمية مضافة في هذه الحقيبة بعد</h3>
+                    <p className="text-sm text-slate-600 max-w-md mx-auto">
+                      يمكنك كمعلم أو مشرف إضافة الأبواب والدروس وتنظيم المحتوى بسهولة عبر لوحة إدارة الحقائب.
+                    </p>
+                    {isTeacherMode && (
+                      <button
+                        onClick={() => setShowBagManagementModal(true)}
+                        className="bg-emerald-800 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl font-quran shadow-md cursor-pointer inline-flex items-center gap-2"
+                      >
+                        <Briefcase className="w-4 h-4" />
+                        <span>فتح إدارة وتنظيم الأبواب والدروس</span>
+                      </button>
+                    )}
+                  </div>
+                )
+              )}
+              {activeTab === 'exceptions' && <ExceptionWordsView course={activeCourse} />}
+              {activeTab === 'examples' && <ExamplesView course={activeCourse} />}
+              {activeTab === 'errors' && <ErrorCorrectionView course={activeCourse} />}
+              {activeTab === 'summary' && <SummaryTableView course={activeCourse} />}
+              {activeTab === 'exam' && (
+                <ComprehensiveExamView
+                  course={activeCourse}
+                  onReturnToStudy={() => {
+                    setIsExamActive(false);
+                    setActiveTab('units');
+                  }}
+                  onExamActiveChange={(isActive) => setIsExamActive(isActive)}
+                  completedUnitsCount={completedUnitsCount}
+                  completedUnitNumbers={studentProgress.completedUnitNumbers || []}
+                  isTeacherMode={isTeacherMode}
+                  examBestScore={studentProgress.examBestScore}
+                />
+              )}
+              {activeTab === 'rules' && <RulesCheatSheet course={activeCourse} />}
+              {activeTab === 'books' && <BooksView course={activeCourse} />}
+            </>
           )}
-          {activeTab === 'units' && <UnitView key={`${activeCourseId}_${currentUnit.id}`} unit={currentUnit} course={activeCourse} isTeacherMode={isTeacherMode} />}
-          {activeTab === 'exceptions' && <ExceptionWordsView course={activeCourse} />}
-          {activeTab === 'examples' && <ExamplesView course={activeCourse} />}
-          {activeTab === 'errors' && <ErrorCorrectionView course={activeCourse} />}
-          {activeTab === 'summary' && <SummaryTableView course={activeCourse} />}
-          {activeTab === 'exam' && (
-            <ComprehensiveExamView
-              course={activeCourse}
-              onReturnToStudy={() => {
-                setIsExamActive(false);
-                setActiveTab('units');
-              }}
-              onExamActiveChange={(isActive) => setIsExamActive(isActive)}
-              completedUnitsCount={completedUnitsCount}
-              completedUnitNumbers={studentProgress.completedUnitNumbers || []}
-              isTeacherMode={isTeacherMode}
-              examBestScore={studentProgress.examBestScore}
-            />
-          )}
-          {activeTab === 'rules' && <RulesCheatSheet course={activeCourse} />}
-          {activeTab === 'books' && <BooksView course={activeCourse} />}
         </main>
 
         {/* Teacher Authentication Unlock Modal */}
@@ -477,6 +542,24 @@ export default function App() {
           onOpenTeacherAuth={() => setShowAuthModal(true)}
         />
 
+        {/* Dedicated Bag & Course Management Modal */}
+        {showBagManagementModal && (
+          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6 animate-fadeIn dir-rtl no-print">
+            <div className="max-w-5xl w-full max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl">
+              <BagManagementPanel
+                activeCourseId={activeCourseId}
+                onClose={() => setShowBagManagementModal(false)}
+                onSelectCourseToView={(cId) => {
+                  setActiveCourseId(cId);
+                  setActiveTab('cover');
+                  setSelectedUnitIndex(0);
+                  setShowBagManagementModal(false);
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Printable View Container for Curriculum (Only visible during window.print() when not on exam tab) */}
         {activeTab !== 'exam' && (
           <div className="hidden print-only p-8 text-black space-y-8 font-tajawal">
@@ -537,6 +620,12 @@ export default function App() {
       {/* Floating WhatsApp Support Button */}
       <FloatingWhatsAppSupport />
 
+      {/* Global Badge Earned Notification Toast */}
+      <BadgeEarnedToast />
+
+      {/* Quran Font Picker Modal */}
+      <QuranFontModal isOpen={showFontModal} onClose={() => setShowFontModal(false)} />
+
       {/* Footer */}
       <footer className={`py-8 mt-12 no-print border-t transition-colors duration-300 ${
         activeCourseId === 'idgham'
@@ -560,7 +649,7 @@ export default function App() {
             <WhatsAppSupport variant="button" />
 
             <div className="flex items-center gap-2 text-xs text-slate-950 font-bold bg-amber-400 px-4 py-2 rounded-xl font-quran shadow-sm">
-              <Sparkles className="w-4 h-4 fill-slate-950" />
+              <Award className="w-4 h-4 text-slate-950" />
               <span>جمع وإعداد: {activeCourse.author}</span>
             </div>
           </div>

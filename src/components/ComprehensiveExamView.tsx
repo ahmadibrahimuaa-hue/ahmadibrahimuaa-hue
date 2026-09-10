@@ -4,7 +4,7 @@ import { getComprehensiveExamBank, subscribeQuestionBank } from '../utils/questi
 import { 
   Award, ChevronRight, ChevronLeft, Send, Clock, 
   ShieldAlert, Play, ArrowRight, Lock, CheckCircle2, AlertTriangle,
-  Sparkles, RotateCcw, BookOpen, XCircle, HelpCircle, Check, Eye, Search, X, Trophy
+  RotateCcw, BookOpen, XCircle, HelpCircle, Check, Eye, Search, X, Trophy, Zap, Flame
 } from 'lucide-react';
 import { saveSubmission, saveStudentProfile, getStudentProfile, subscribeStudentProfile } from '../utils/studentStorage';
 import { recordExamScore } from '../utils/studentProgressStorage';
@@ -49,7 +49,8 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
   const examStorageKey = `tajweed_exam_saved_result_v3_${courseId}`;
 
   const [examState, setExamState] = useState<'instructions' | 'taking' | 'submitted'>('instructions');
-  const [timeLeft, setTimeLeft] = useState<number>(180); // 3 minutes = 180 seconds
+  const [isChallengeMode, setIsChallengeMode] = useState<boolean>(true);
+  const [timeLeft, setTimeLeft] = useState<number>(150); // 150s (2:30) for challenge, 300s (5:00) for standard
   const [activeQuestions, setActiveQuestions] = useState<ActiveQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
@@ -59,6 +60,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
   const [savedPercentage, setSavedPercentage] = useState<number | null>(null);
   const [savedTotalPoints, setSavedTotalPoints] = useState<number>(100);
   const [savedPassDate, setSavedPassDate] = useState<string>('');
+  const [savedChallengeCompleted, setSavedChallengeCompleted] = useState<boolean>(false);
   const [showIncorrectModal, setShowIncorrectModal] = useState<boolean>(false);
   const [certConfig, setCertConfig] = useState<CertificateConfig>(getCertificateConfig());
 
@@ -182,7 +184,8 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
     setSavedScore(null);
     setSavedPercentage(null);
     initializeExam();
-    setTimeLeft(180);
+    const duration = isChallengeMode ? 150 : 300; // 2:30 for challenge mode, 5:00 for standard mode
+    setTimeLeft(duration);
     setExamState('taking');
   };
 
@@ -444,12 +447,74 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
             </div>
           </div>
 
+          {/* Exam Mode Selector */}
+          <div className="space-y-2.5">
+            <label className="block text-xs font-bold text-slate-800 font-quran">
+              اختر وضع أداء الاختبار الشامل:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Challenge Mode Option */}
+              <button
+                type="button"
+                onClick={() => setIsChallengeMode(true)}
+                className={`p-4 rounded-2xl border-2 text-right transition-all cursor-pointer flex items-start gap-3 relative ${
+                  isChallengeMode
+                    ? 'bg-amber-500/10 border-amber-500 text-slate-950 shadow-md ring-2 ring-amber-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <div className={`p-2.5 rounded-xl shrink-0 ${isChallengeMode ? 'bg-amber-400 text-slate-950 shadow' : 'bg-slate-200 text-slate-600'}`}>
+                  <Zap className="w-5 h-5 fill-current" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold font-quran text-sm text-amber-950">وضع التحدي الذكي ⚡</span>
+                    <span className="bg-amber-400 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full font-sans">
+                      02:30 دقيقة
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-tajawal leading-relaxed">
+                    مؤقت عد تنازلي سريع وتوزيع عشوائي كامل للأسئلة والخيارات لزيادة التركيز والتحفيز مع وسام التحدي.
+                  </p>
+                </div>
+              </button>
+
+              {/* Standard Mode Option */}
+              <button
+                type="button"
+                onClick={() => setIsChallengeMode(false)}
+                className={`p-4 rounded-2xl border-2 text-right transition-all cursor-pointer flex items-start gap-3 relative ${
+                  !isChallengeMode
+                    ? 'bg-emerald-500/10 border-emerald-600 text-slate-950 shadow-md ring-2 ring-emerald-300'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <div className={`p-2.5 rounded-xl shrink-0 ${!isChallengeMode ? 'bg-emerald-700 text-white shadow' : 'bg-slate-200 text-slate-600'}`}>
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold font-quran text-sm text-emerald-950">الوضع المعياري التدريبي ⏱️</span>
+                    <span className="bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-sans">
+                      05:00 دقائق
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-tajawal leading-relaxed">
+                    وقت مرن ومريح للمراجعة المتأنية مع تغطية كاملة لجميع أبواب المنهج وإصدار الشهادة.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-4 font-tajawal text-xs sm:text-sm text-slate-700 leading-relaxed">
             <div className="flex items-start gap-3 bg-amber-50/80 p-4 rounded-2xl border border-amber-200">
               <Clock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-amber-950 block text-sm font-bold mb-0.5">1. عداد زمني محدد بـ (3 دقائق):</strong>
-                ستبدأ ساعة تنازلية مدتها <span className="text-amber-700 font-bold font-sans">03:00</span> دقيقة فور التأكيد. يُرجى التركيز والإجابة على الـ 20 سؤالاً قبل نهاية الوقت.
+                <strong className="text-amber-950 block text-sm font-bold mb-0.5">
+                  1. عداد زمني محدد ({isChallengeMode ? 'دقيقتان ونصف 02:30' : 'خمس دقائق 05:00'}):
+                </strong>
+                ستبدأ ساعة تنازلية دقيقة فور التأكيد. يُرجى التركيز والإجابة على الـ 20 سؤالاً قبل نهاية الوقت.
               </div>
             </div>
 
@@ -462,10 +527,10 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
             </div>
 
             <div className="flex items-start gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <RotateCcw className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-slate-900 block text-sm font-bold mb-0.5">3. التسليم والاعتماد التلقائي:</strong>
-                عند انتهاء زَمَن الـ 3 دقائق يتم إرسال واعتماد إجاباتك فوراً واحتساب النتيجة بصفة نهائية.
+                <strong className="text-slate-900 block text-sm font-bold mb-0.5">3. توزيع أسئلة واختيارات عشوائي لكل محاولة:</strong>
+                يتم اختيار وترتيب الأسئلة والخيارات آلياً وبشكل عشوائي عند كل بدء اختبار لضمان أصالة القياس وقوة التقييم.
               </div>
             </div>
 
@@ -473,7 +538,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
               <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
               <div>
                 <strong className="block text-sm font-bold mb-0.5">4. تقييم الأداء والسجل السحابي:</strong>
-                عند إتمام الاختبار بنجاح، يتم حفظ نتيجتك وتقييم مستوى إتقانك في السجل السحابي.
+                عند إتمام الاختبار بنجاح، يتم حفظ نتيجتك وتقييم مستوى إتقانك في السجل السحابي وتوثيق وسام الإنجاز.
               </div>
             </div>
           </div>
@@ -605,14 +670,28 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
 
         {/* Timer Bar during active exam */}
         {examState === 'taking' && (
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
+            {isChallengeMode ? (
+              <span className="bg-amber-500/20 text-amber-900 border border-amber-400 text-xs font-black px-3 py-1.5 rounded-xl font-quran flex items-center gap-1.5 shadow-xs">
+                <Zap className="w-4 h-4 text-amber-600 fill-current animate-pulse" />
+                <span>وضع التحدي مفعّل ⚡ (أسئلة عشوائية)</span>
+              </span>
+            ) : (
+              <span className="bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold px-3 py-1.5 rounded-xl font-quran flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-emerald-700" />
+                <span>الوضع المعياري ⏱️</span>
+              </span>
+            )}
+
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${
               timeLeft <= 30
-                ? 'bg-rose-100 text-rose-900 border-rose-300 animate-bounce'
-                : 'bg-amber-50 text-amber-950 border-amber-300'
+                ? 'bg-rose-100 text-rose-900 border-rose-400 animate-bounce shadow-md'
+                : isChallengeMode
+                ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 border-amber-600 shadow-sm font-extrabold'
+                : 'bg-emerald-50 text-emerald-950 border-emerald-300'
             }`}>
-              <Clock className={`w-4 h-4 ${timeLeft <= 30 ? 'text-rose-600' : 'text-amber-700'}`} />
-              <span>الزمن المتبقي:</span>
+              <Clock className={`w-4 h-4 ${timeLeft <= 30 ? 'text-rose-600' : isChallengeMode ? 'text-slate-950' : 'text-emerald-700'}`} />
+              <span>المتبقي:</span>
               <span className="font-sans text-sm font-extrabold tracking-wider dir-ltr">{formatTime(timeLeft)}</span>
             </div>
           </div>
