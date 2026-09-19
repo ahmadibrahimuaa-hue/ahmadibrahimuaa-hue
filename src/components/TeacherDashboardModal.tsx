@@ -3,7 +3,7 @@ import {
   UserCheck, ShieldCheck, Award, Trash2, Download, Search, X, 
   CheckCircle2, AlertCircle, FileSpreadsheet, Lock, RefreshCw, Eye, Loader2, Wifi,
   PlusCircle, Edit3, HelpCircle, BookOpen, Layers, Check, RotateCcw, AlertTriangle,
-  Upload, Image as ImageIcon, Palette, Users, Key, Copy, Shield, ExternalLink, Briefcase, BarChart3
+  Upload, Image as ImageIcon, Palette, Users, Key, Copy, Shield, ExternalLink, Briefcase, BarChart3, FileText
 } from 'lucide-react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -33,6 +33,7 @@ import { AdminTrainersPanel } from './AdminTrainersPanel';
 import { BagManagementPanel } from './BagManagementPanel';
 import { TeacherWaitlistPanel } from './TeacherWaitlistPanel';
 import { TeacherAnalyticsDashboard } from './TeacherAnalyticsDashboard';
+import { TeacherGuidePanel } from './TeacherGuidePanel';
 import { getActiveTrainersList } from '../utils/trainerStorage';
 import { subscribeWaitlistEntries, WaitlistEntry } from '../utils/waitlistStorage';
 
@@ -40,7 +41,7 @@ interface TeacherDashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLockTeacherMode: () => void;
-  initialTab?: 'analytics' | 'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers' | 'bag_management' | 'waitlist';
+  initialTab?: 'analytics' | 'submissions' | 'teacher_guide' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers' | 'bag_management' | 'waitlist';
   activeCourseId?: string;
   authTrainer?: TrainerAccount | null;
   authRole?: 'super_admin' | 'trainer';
@@ -72,7 +73,7 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
   authTrainer = null,
   authRole = 'trainer',
 }) => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers' | 'bag_management' | 'waitlist'>(
+  const [activeTab, setActiveTab] = useState<'analytics' | 'submissions' | 'teacher_guide' | 'unit_questions' | 'exam_questions' | 'certificate' | 'trainers' | 'bag_management' | 'waitlist'>(
     initialTab
   );
 
@@ -625,6 +626,18 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
             >
               <Award className="w-4 h-4" />
               <span>سجل نتائج وتدريبات الطلاب ({submissions.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('teacher_guide')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'teacher_guide'
+                  ? 'bg-amber-400 text-slate-950 font-extrabold shadow-md ring-2 ring-amber-300'
+                  : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/40'
+              }`}
+            >
+              <FileText className="w-4 h-4 text-amber-400" />
+              <span>📖 دليل إجابات المعلم (المناقشة والواجبات والتلاوة)</span>
             </button>
 
             <button
@@ -1680,6 +1693,16 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
               onSelectTrainerForFilter={(trId) => {
                 setTrainerFilter(trId);
                 setActiveTab('submissions');
+              }}
+            />
+          )}
+
+          {/* TAB: TEACHER GUIDE (ANSWERS & HOMEWORK SOLUTIONS) */}
+          {activeTab === 'teacher_guide' && (
+            <TeacherGuidePanel
+              activeCourseId={selectedCourseId}
+              onSelectCourseToView={(cId) => {
+                setSelectedCourseId(cId);
               }}
             />
           )}

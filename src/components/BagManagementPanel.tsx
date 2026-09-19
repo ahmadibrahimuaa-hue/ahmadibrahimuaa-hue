@@ -3,13 +3,18 @@ import {
   Briefcase, PlusCircle, Edit3, Trash2, CheckCircle2, Lock, Unlock,
   Clock, Sparkles, Layers, BookOpen, ChevronLeft, ArrowRight,
   Save, AlertTriangle, RefreshCw, X, Check, DollarSign, Gift,
-  Tag, Award, Eye, FileText, ChevronDown, ChevronUp, MoveUp, MoveDown, KeyRound
+  Tag, Award, Eye, FileText, ChevronDown, ChevronUp, MoveUp, MoveDown, KeyRound,
+  FolderSync, RotateCcw, UserCheck
 } from 'lucide-react';
 import { Course, Unit, Lesson, CourseStatus, CourseLevel } from '../types';
+import { LessonClassifierModal } from './LessonClassifierModal';
 import { 
   getCustomStoredCourses, 
   saveOrUpdateCourse, 
   deleteCourseById, 
+  restoreCourseById,
+  getDeletedCoursesArchive,
+  permanentlyDeleteFromArchive,
   updateCourseStatus, 
   addUnitToCourse, 
   deleteUnitFromCourse, 
@@ -55,6 +60,27 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
   const [isEditingLesson, setIsEditingLesson] = useState<boolean>(false);
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson>>({});
   const [targetUnitForLesson, setTargetUnitForLesson] = useState<string | null>(null);
+
+  // Lesson Classifier Modal State
+  const [classifierModalData, setClassifierModalData] = useState<{
+    isOpen: boolean;
+    courseId?: string;
+    unitId?: string;
+    lessonId?: string;
+  }>({ isOpen: false });
+
+  // Delete Bag Confirmation Modal State
+  const [deleteTarget, setDeleteTarget] = useState<{
+    courseId: string;
+    courseTitle: string;
+    badge?: string;
+    unitsCount?: number;
+    lessonsCount?: number;
+  } | null>(null);
+
+  // Deleted Courses Trash / Archive State
+  const [showTrashModal, setShowTrashModal] = useState<boolean>(false);
+  const [deletedArchive, setDeletedArchive] = useState<Course[]>(() => getDeletedCoursesArchive());
 
   useEffect(() => {
     const unsub = subscribeCourses((updatedList) => {
@@ -164,41 +190,75 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
     }
   };
 
-  const handleDeleteBag = (courseId: string, title: string) => {
-    if (courseId === 'sakinan') {
-      notifyError('لا يمكن حذف الحقيبة الأولى التأسيسية للمنصة (يمكنك تعديل حالتها أو محتواها).');
-      return;
-    }
-    if (window.confirm(`هل أنت متأكد من رغبتك في حذف وإلغاء الحقيبة: "${title}"؟`)) {
-      const ok = deleteCourseById(courseId);
-      if (ok) {
-        notifySuccess(`تم حذف الحقيبة "${title}" بنجاح.`);
-        setSelectedBagId('sakinan');
-      } else {
-        notifyError('تعذر حذف الحقيبة.');
+  const handleRequestDeleteBag = (course: Course) => {
+    const totalLessons = (course.units || []).reduce(
+      (acc, u) => acc + (u.lessons?.length || 0),
+      0
+    );
+    setDeleteTarget({
+      courseId: course.id,
+      courseTitle: course.title,
+      badge: course.badge,
+      unitsCount: course.units?.length || 0,
+      lessonsCount: totalLessons,
+    });
+  };
+
+  const handleConfirmDeleteBag = () => {
+    if (!deleteTarget) return;
+    const { courseId, courseTitle } = deleteTarget;
+    const ok = deleteCourseById(courseId);
+    if (ok) {
+      setDeletedArchive(getDeletedCoursesArchive());
+      notifySuccess(`تم حذف الحقيبة "${courseTitle}" بنجاح ونقلها إلى سلة المحذوفات.`);
+      // If the currently selected bag was deleted, switch to another course or empty
+      const remaining = courses.filter((c) => c.id !== courseId);
+      if (remaining.length > 0) {
+        setSelectedBagId(remaining[0].id);
       }
+      if (viewMode === 'edit_bag' && editingCourse.id === courseId) {
+        setViewMode('bags_list');
+      }
+    } else {
+      notifyError('تعذر حذف الحقيبة، يرجى المحاولة مرة أخرى.');
+    }
+    setDeleteTarget(null);
+  };
+
+  const handleRestoreBag = (courseId: string, title: string) => {
+    const ok = restoreCourseById(courseId);
+    if (ok) {
+      setDeletedArchive(getDeletedCoursesArchive());
+      notifySuccess(`تمت استعادة الحقيبة "${title}" بنجاح وأصبحت متاحة في المنصة!`);
+      setSelectedBagId(courseId);
+    } else {
+      notifyError('تعذر استعادة الحقيبة.');
     }
   };
 
+  const handlePermanentDelete = (courseId: string, title: string) => {
+    permanentlyDeleteFromArchive(courseId);
+    setDeletedArchive(getDeletedCoursesArchive());
+    notifySuccess(`تم حذف الحقيبة "${title}" نهائياً من سلة المهملات.`);
+  };
+
   const handleQuickStatusToggle = (course: Course, newStatus: CourseStatus) => {
-    const isPaid = newStatus === 'coming_soon' ? true : course.pricing?.isPaid ?? false;
-    updateCourseStatus(course.id, newStatus, isPaid);
-    notifySuccess(`تم تحديث حالة الحقيبة "${course.shortTitle}" إلى: ${
-      newStatus === 'available' ? '🟢 نشطة ومفتوحة' : newStatus === 'coming_soon' ? '⏳ قريباً - مدفوعة' : '🔒 مغلقة'
+    // Preserve current isPaid and pricing strictly - do not force paid when coming_soon
+    updateCourseStatus(course.id, newStatus);
+    notifySuccess(`تم تحديث حالة الحقيبة "${course.shortTitle || course.title}" إلى: ${
+      newStatus === 'available' ? '🟢 نشطة ومتاحة' : newStatus === 'coming_soon' ? '⏳ قريباً - قيد الإعداد' : '🔒 مغلقة'
     }`);
   };
 
   const handleQuickPaidToggle = (course: Course) => {
     const nextIsPaid = !(course.pricing?.isPaid ?? false);
-    const updatedCourse: Course = {
-      ...course,
-      pricing: {
-        ...course.pricing,
-        isPaid: nextIsPaid,
-        priceText: nextIsPaid ? (course.pricing?.priceText && course.pricing?.priceText !== 'متاحة مجاناً' ? course.pricing.priceText : 'محتوى مدفوع') : 'متاحة مجاناً ومفتوحة',
-      },
-    };
-    saveOrUpdateCourse(updatedCourse);
+    const nextPriceText = nextIsPaid 
+      ? (course.pricing?.priceText && course.pricing?.priceText !== 'متاحة مجاناً ومفتوحة' && course.pricing?.priceText !== 'متاحة مجاناً' 
+          ? course.pricing.priceText 
+          : 'محتوى مدفوع') 
+      : 'متاحة مجاناً ومفتوحة';
+
+    updateCourseStatus(course.id, course.status, nextIsPaid, nextPriceText);
     notifySuccess(
       nextIsPaid
         ? `تم تحويل الحقيبة "${course.shortTitle || course.title}" إلى: محتوى مدفوع 🔒 (مقفلة تلقائياً عن الطلاب)`
@@ -327,8 +387,11 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
       exercises: editingLesson.exercises || [],
       examples: editingLesson.examples || [],
       discussionQuestions: editingLesson.discussionQuestions || [],
+      discussionAnswers: editingLesson.discussionAnswers || [],
       homeworkTask: editingLesson.homeworkTask || '',
+      homeworkSolution: editingLesson.homeworkSolution || '',
       recitationTask: editingLesson.recitationTask || '',
+      recitationGuide: editingLesson.recitationGuide || '',
     };
 
     const ok = addLessonToUnit(currentSelectedCourse.id, targetUnitForLesson, lessonToSave);
@@ -379,6 +442,15 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
           {viewMode === 'bags_list' && (
             <>
               <button
+                onClick={() => setClassifierModalData({ isOpen: true, courseId: selectedBagId })}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer font-quran"
+                title="تصنيف ونقل الدروس بين الحقائب والمستويات، أو إنشاء حقيبة جديدة للدرس"
+              >
+                <FolderSync className="w-4 h-4" />
+                <span>تصنيف ونقل الدروس والمستويات</span>
+              </button>
+
+              <button
                 onClick={handleOpenCreateBag}
                 className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs px-4 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer font-quran"
               >
@@ -386,10 +458,22 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
                 <span>+ إضافة حقيبة جديدة</span>
               </button>
 
+              {deletedArchive.length > 0 && (
+                <button
+                  onClick={() => setShowTrashModal(true)}
+                  className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 hover:text-rose-100 text-xs font-bold px-3.5 py-2 rounded-xl border border-rose-800/60 flex items-center gap-1.5 cursor-pointer font-quran transition-colors shadow-sm"
+                  title="سلة الحقائب المحذوفة واسترجاعها"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>سلة المحذوفات ({deletedArchive.length})</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
-                  if (window.confirm('هل تود استعادة الحقائب الافتراضية للمنصة؟')) {
+                  if (window.confirm('هل تود استعادة الحقائب الافتراضية للمنصة بالكامل؟')) {
                     resetCoursesToDefault();
+                    setDeletedArchive([]);
                     notifySuccess('تمت استعادة الحقائب الافتراضية بنجاح');
                   }
                 }}
@@ -601,15 +685,14 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
                         <span>تعديل</span>
                       </button>
 
-                      {course.id !== 'sakinan' && (
-                        <button
-                          onClick={() => handleDeleteBag(course.id, course.title)}
-                          className="bg-rose-950/60 hover:bg-rose-900 text-rose-300 text-xs font-bold p-2 rounded-xl border border-rose-800/60 transition-colors cursor-pointer"
-                          title="حذف الحقيبة"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleRequestDeleteBag(course)}
+                        className="bg-rose-950/60 hover:bg-rose-900 text-rose-300 hover:text-rose-100 text-xs font-bold p-2 px-2.5 rounded-xl border border-rose-800/60 transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                        title="حذف هذه الحقيبة بالكامل"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span className="text-[11px] font-quran">حذف</span>
+                      </button>
 
                       {onSelectCourseToView && (
                         <button
@@ -630,6 +713,54 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
               );
             })}
           </div>
+
+          {courses.length === 0 && (
+            <div className="bg-slate-950/90 rounded-3xl p-8 sm:p-12 border-2 border-dashed border-slate-800 text-center space-y-4 animate-fadeIn">
+              <div className="w-16 h-16 rounded-2xl bg-slate-900 text-amber-400 flex items-center justify-center mx-auto border border-slate-800 shadow-inner">
+                <Briefcase className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xl font-black font-quran text-slate-100">
+                  لا توجد حقائب تعليمية نشطة حالياً
+                </h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                  تم حذف كافة الحقائب الحالية من المنصة. يمكنك إنشاء حقيبة جديدة مخصصة، أو استرجاع ما تم حذفه من سلة المحذوفات، أو استعادة الحقائب الافتراضية.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={handleOpenCreateBag}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs font-quran flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>+ إنشاء حقيبة جديدة</span>
+                </button>
+
+                {deletedArchive.length > 0 && (
+                  <button
+                    onClick={() => setShowTrashModal(true)}
+                    className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 font-bold px-4 py-2.5 rounded-xl text-xs font-quran border border-rose-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>سلة المحذوفات ({deletedArchive.length})</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    resetCoursesToDefault();
+                    setDeletedArchive([]);
+                    notifySuccess('تمت استعادة الحقائب الافتراضية بنجاح');
+                  }}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs font-quran border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>استعادة الحقائب الافتراضية</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -842,22 +973,44 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
             </div>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setViewMode('bags_list')}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-700 cursor-pointer font-quran"
-              >
-                إلغاء
-              </button>
+            <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-800 flex-wrap">
+              <div>
+                {!isCreatingNewBag && editingCourse.id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const c = courses.find((x) => x.id === editingCourse.id);
+                      if (c) {
+                        handleRequestDeleteBag(c);
+                      } else {
+                        handleRequestDeleteBag(editingCourse as Course);
+                      }
+                    }}
+                    className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 hover:text-rose-100 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-rose-800/60 transition-colors flex items-center gap-1.5 cursor-pointer font-quran"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-400" />
+                    <span>حذف هذه الحقيبة</span>
+                  </button>
+                )}
+              </div>
 
-              <button
-                type="submit"
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer font-quran"
-              >
-                <Save className="w-4 h-4" />
-                <span>حفظ بيانات الحقيبة</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('bags_list')}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-700 cursor-pointer font-quran"
+                >
+                  إلغاء
+                </button>
+
+                <button
+                  type="submit"
+                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer font-quran"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>حفظ بيانات الحقيبة</span>
+                </button>
+              </div>
             </div>
 
           </div>
@@ -1047,13 +1200,52 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
                 </div>
 
                 <div className="sm:col-span-3 space-y-1">
-                  <label className="text-slate-300 font-bold">الواجب والتطبيق العملي</label>
+                  <label className="text-slate-300 font-bold">الواجب المنزلي والتطبيق العملي (يظهر للطالب)</label>
                   <input
                     type="text"
                     value={editingLesson.homeworkTask || ''}
                     onChange={(e) => setEditingLesson({ ...editingLesson, homeworkTask: e.target.value })}
-                    placeholder="مثال: استخراج 3 أمثلة من سورة الكهف"
+                    placeholder="مثال: استخراج 3 أمثلة من سورة الكهف..."
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-slate-100"
+                  />
+                </div>
+
+                <div className="sm:col-span-3 space-y-1 bg-purple-950/40 p-3 rounded-xl border border-purple-800/60">
+                  <label className="text-purple-300 font-bold flex items-center gap-1">
+                    <UserCheck className="w-3.5 h-3.5" />
+                    نموذج حل الواجب والتصحيح (🔒 خاص بنسخة المعلم فقط):
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editingLesson.homeworkSolution || ''}
+                    onChange={(e) => setEditingLesson({ ...editingLesson, homeworkSolution: e.target.value })}
+                    placeholder="اكتب الحل النموذجي المعتمد للواجب..."
+                    className="w-full bg-slate-900 border border-purple-700/60 rounded-xl p-2 text-slate-100 text-xs"
+                  />
+                </div>
+
+                <div className="sm:col-span-3 space-y-1">
+                  <label className="text-slate-300 font-bold">تكليف التلاوة التطبيقي (يظهر للطالب)</label>
+                  <input
+                    type="text"
+                    value={editingLesson.recitationTask || ''}
+                    onChange={(e) => setEditingLesson({ ...editingLesson, recitationTask: e.target.value })}
+                    placeholder="مثال: تلاوة الآيات المحددة مع مراعاة تحقيق هذا الحكم..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-slate-100"
+                  />
+                </div>
+
+                <div className="sm:col-span-3 space-y-1 bg-emerald-950/40 p-3 rounded-xl border border-emerald-800/60">
+                  <label className="text-emerald-300 font-bold flex items-center gap-1">
+                    <UserCheck className="w-3.5 h-3.5" />
+                    توجيهات المعلم عند الاستماع للتلاوة (🔒 خاص بنسخة المعلم فقط):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editingLesson.recitationGuide || ''}
+                    onChange={(e) => setEditingLesson({ ...editingLesson, recitationGuide: e.target.value })}
+                    placeholder="اكتب توجيهات الاستماع للتلاوة ورصد الأخطاء الشائعة..."
+                    className="w-full bg-slate-900 border border-emerald-700/60 rounded-xl p-2 text-slate-100 text-xs"
                   />
                 </div>
               </div>
@@ -1167,17 +1359,34 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
                               </span>
                             </div>
 
-                            <button
-                              onClick={() => {
-                                setTargetUnitForLesson(unit.id);
-                                setEditingLesson(JSON.parse(JSON.stringify(lesson)));
-                                setIsEditingLesson(true);
-                              }}
-                              className="text-slate-400 hover:text-amber-300 p-1"
-                              title="تعديل الدرس"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setClassifierModalData({
+                                    isOpen: true,
+                                    courseId: currentSelectedCourse?.id,
+                                    unitId: unit.id,
+                                    lessonId: lesson.id,
+                                  });
+                                }}
+                                className="text-slate-400 hover:text-emerald-400 p-1 transition-colors"
+                                title="تصنيف ونقل هذا الدرس إلى حقيبة أو مستوى آخر"
+                              >
+                                <FolderSync className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setTargetUnitForLesson(unit.id);
+                                  setEditingLesson(JSON.parse(JSON.stringify(lesson)));
+                                  setIsEditingLesson(true);
+                                }}
+                                className="text-slate-400 hover:text-amber-300 p-1"
+                                title="تعديل الدرس"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1188,6 +1397,206 @@ export const BagManagementPanel: React.FC<BagManagementPanelProps> = ({
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* Lesson Classifier & Movement Modal */}
+      {classifierModalData.isOpen && (
+        <LessonClassifierModal
+          initialCourseId={classifierModalData.courseId}
+          initialUnitId={classifierModalData.unitId}
+          initialLessonId={classifierModalData.lessonId}
+          onClose={() => setClassifierModalData({ isOpen: false })}
+          onSuccess={(targetCId) => {
+            setClassifierModalData({ isOpen: false });
+            setSelectedBagId(targetCId);
+            notifySuccess('تم بنجاح تحديث تصنيف ونقل الدرس!');
+          }}
+        />
+      )}
+
+      {/* 1. DELETE BAG CONFIRMATION MODAL */}
+      {deleteTarget && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div 
+            className="bg-slate-900 border-2 border-rose-500/80 rounded-3xl p-6 sm:p-7 max-w-lg w-full text-slate-100 shadow-2xl space-y-5 dir-rtl relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top red glow accent */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-rose-500 via-amber-500 to-rose-500" />
+
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-950 border border-rose-700/60 flex items-center justify-center shrink-0 text-rose-400 shadow-lg">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xl font-black font-quran text-rose-200">
+                  تأكيد حذف الحقيبة التعليمية
+                </h3>
+                <p className="text-xs text-slate-400 font-tajawal">
+                  أنت على وشك حذف هذه الحقيبة بالكامل من المنصة التعليمية
+                </p>
+              </div>
+            </div>
+
+            {/* Target Bag Details Card */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-800/40">
+                  {deleteTarget.badge || 'حقيبة تعليمية'}
+                </span>
+                <span className="text-xs text-slate-400 font-quran">
+                  الأبواب: <strong>{deleteTarget.unitsCount ?? 0}</strong> | الدروس: <strong>{deleteTarget.lessonsCount ?? 0}</strong>
+                </span>
+              </div>
+              <h4 className="text-base font-black font-quran text-slate-100">
+                {deleteTarget.courseTitle}
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed font-tajawal">
+                💡 <strong>ملاحظة أمان:</strong> لن يتم فقدان محتويات هذه الحقيبة نهائياً؛ سيتم نقلها إلى <strong>«سلة المحذوفات»</strong> حيث يمكنك استعادتها بجميع أبوابها ودروسها في أي وقت بضغطة زر واحدة.
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-700 transition-all font-quran cursor-pointer"
+              >
+                إلغاء والتراجع
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeleteBag}
+                className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-black px-5 py-2.5 rounded-xl shadow-lg shadow-rose-600/30 transition-all flex items-center gap-1.5 font-quran cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>نعم، حذف الحقيبة الآن</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. DELETED BAGS ARCHIVE / TRASH MODAL */}
+      {showTrashModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn"
+          onClick={() => setShowTrashModal(false)}
+        >
+          <div 
+            className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full text-slate-100 shadow-2xl space-y-5 dir-rtl max-h-[85vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-950/80 border border-rose-800/60 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black font-quran text-slate-100">
+                    سلة الحقائب المحذوفة ({deletedArchive.length})
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    يمكنك استعادة أي حقيبة تم حذفها لتعود للمنصة بكامل محتوياتها
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowTrashModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* List of deleted bags */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {deletedArchive.length === 0 ? (
+                <div className="text-center py-12 space-y-2">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
+                  <p className="text-sm font-bold font-quran text-slate-300">
+                    سلة الحقائب المحذوفة فارغة
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    لم تقم بحذف أي حقيبة مؤخراً
+                  </p>
+                </div>
+              ) : (
+                deletedArchive.map((archived) => {
+                  const uCount = archived.units?.length || 0;
+                  const lCount = (archived.units || []).reduce(
+                    (acc, u) => acc + (u.lessons?.length || 0),
+                    0
+                  );
+
+                  return (
+                    <div
+                      key={archived.id}
+                      className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-slate-700 transition-colors"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-800/40">
+                            {archived.badge || 'حقيبة'}
+                          </span>
+                          <h4 className="text-sm font-black font-quran text-slate-100">
+                            {archived.title}
+                          </h4>
+                        </div>
+                        <p className="text-xs text-slate-400 font-quran">
+                          الأبواب: <strong>{uCount}</strong> | الدروس: <strong>{lCount}</strong> | المستوى: {archived.levelText || 'عام'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          onClick={() => handleRestoreBag(archived.id, archived.title)}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer font-quran shadow-sm"
+                          title="استعادة الحقيبة وإعادتها لقائمة الحقائب النشطة"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>استرجاع الحقيبة</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`هل أنت متأكد من رغبتك في حذف حقيبة "${archived.title}" نهائياً من سلة المهملات؟`)) {
+                              handlePermanentDelete(archived.id, archived.title);
+                            }
+                          }}
+                          className="bg-slate-800 hover:bg-rose-900 text-slate-400 hover:text-rose-200 text-xs p-1.5 rounded-xl border border-slate-700 hover:border-rose-700 transition-colors cursor-pointer"
+                          title="حذف نهائي لا يمكن التراجع عنه"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-xs">
+              <span className="text-slate-400">
+                إجمالي الحقائب في السلة: {deletedArchive.length}
+              </span>
+              <button
+                onClick={() => setShowTrashModal(false)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-2 rounded-xl transition-colors font-quran cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

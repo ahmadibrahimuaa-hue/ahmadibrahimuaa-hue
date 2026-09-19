@@ -36,6 +36,11 @@ function writeJsonFile<T>(filePath: string, data: T): void {
   }
 }
 
+// Health check for platform container monitoring
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 // API Endpoints for cross-device student data sync
 app.get('/api/submissions', (req, res) => {
   const submissions = readJsonFile(SUBMISSIONS_FILE, []);

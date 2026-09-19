@@ -5,11 +5,15 @@ import { DiagramTreeRenderer } from './DiagramTreeRenderer';
 import { 
   BookOpen, Sparkles, CheckCircle2, HelpCircle, FileText, Layers, 
   ArrowRight, ArrowLeft, RotateCcw, Award, UserCheck, GitBranch, 
-  ChevronDown, ChevronUp, Target, Eye, EyeOff, Lightbulb, Edit3
+  ChevronDown, ChevronUp, Target, Eye, EyeOff, Lightbulb, Edit3, FolderSync
 } from 'lucide-react';
 import { saveSubmission } from '../utils/studentStorage';
 import { getUnitQuizQuestions, subscribeQuestionBank, UnitQuizQuestion } from '../utils/questionStorage';
 import { markUnitCompleted } from '../utils/studentProgressStorage';
+import { LessonClassifierModal } from './LessonClassifierModal';
+import { MakharijInteractiveAtlas } from './MakharijInteractiveAtlas';
+import { SifaatVocalSimulator } from './SifaatVocalSimulator';
+import { ALL_COURSES } from '../data/courses';
 
 interface UnitViewProps {
   unit: Unit;
@@ -119,8 +123,12 @@ function renderInlineFormatting(text: string) {
 
 export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode = true }) => {
   const [activeLessonIndex, setActiveLessonIndex] = useState<number>(0);
-  const [showQuiz, setShowQuiz] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'lesson' | 'quiz' | 'atlas' | 'sifaat'>('lesson');
   const [showDiagramTree, setShowDiagramTree] = useState<boolean>(true);
+  const [showClassifierModal, setShowClassifierModal] = useState<boolean>(false);
+  const [showTeacherGuide, setShowTeacherGuide] = useState<boolean>(false);
+
+  const isTeacherGuideActive = isTeacherMode || showTeacherGuide;
 
   // Store quiz answers and submission states per course and unit number to keep them strictly isolated
   const courseId = course?.id || 'sakinan';
@@ -174,7 +182,7 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
 
   useEffect(() => {
     setActiveLessonIndex(0);
-    setShowQuiz(false);
+    setViewMode('lesson');
     setQuizQuestions(getQuestionsForUnit());
     const unsubscribe = subscribeQuestionBank(() => {
       setQuizQuestions(getQuestionsForUnit());
@@ -197,6 +205,17 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
   const quizSubmitted = !!allUnitsSubmitted[unitKey];
 
   const currentLesson: Lesson = unit.lessons[activeLessonIndex] || unit.lessons[0];
+
+  const defaultCourseObj = ALL_COURSES.find((c) => c.id === courseId);
+  const defaultUnitObj = defaultCourseObj?.units?.find((u) => u.unitNumber === unit.unitNumber);
+  const defaultLessonObj = defaultUnitObj?.lessons?.find((l) => l.lessonNumber === currentLesson.lessonNumber);
+
+  const activeDiscussionAnswers: string[] = (currentLesson.discussionAnswers && currentLesson.discussionAnswers.length > 0)
+    ? currentLesson.discussionAnswers
+    : (defaultLessonObj?.discussionAnswers || []);
+
+  const activeHomeworkSolution: string = currentLesson.homeworkSolution || defaultLessonObj?.homeworkSolution || '';
+  const activeRecitationGuide: string = currentLesson.recitationGuide || defaultLessonObj?.recitationGuide || '';
 
   const handleQuizSelect = (questionId: number, optionIndex: number) => {
     if (quizSubmitted) return;
@@ -242,6 +261,7 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
   };
 
   const isIdgham = courseId === 'idgham' || course?.id === 'idgham';
+  const isMakharij = courseId === 'makharij' || course?.id === 'makharij' || unit.id.startsWith('makharij');
 
   return (
     <div className="space-y-8">
@@ -294,10 +314,10 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
               key={lesson.id}
               onClick={() => {
                 setActiveLessonIndex(idx);
-                setShowQuiz(false);
+                setViewMode('lesson');
               }}
-              className={`px-4 py-2 rounded-xl text-xs font-bold font-quran transition-all flex items-center gap-2 ${
-                !showQuiz && activeLessonIndex === idx
+              className={`px-4 py-2 rounded-xl text-xs font-bold font-quran transition-all flex items-center gap-2 cursor-pointer ${
+                viewMode === 'lesson' && activeLessonIndex === idx
                   ? 'bg-amber-400 text-slate-950 shadow-md scale-105'
                   : isIdgham
                   ? 'bg-purple-950/70 text-purple-200 hover:bg-purple-900'
@@ -308,10 +328,39 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
             </button>
           ))}
 
+          {/* Interactive Visual Atlas & Vocal Simulator Tabs - Exclusively for Makharij Course */}
+          {isMakharij && (
+            <>
+              <button
+                onClick={() => setViewMode('atlas')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-quran transition-all flex items-center gap-2 cursor-pointer shadow-sm ${
+                  viewMode === 'atlas'
+                    ? 'bg-amber-400 text-slate-950 shadow-md scale-105 font-black'
+                    : 'bg-emerald-900/90 hover:bg-emerald-800 text-amber-300 border border-amber-400/40'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>أطلس المخارج المصور (الـ 17 مخرجاً)</span>
+              </button>
+
+              <button
+                onClick={() => setViewMode('sifaat')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold font-quran transition-all flex items-center gap-2 cursor-pointer shadow-sm ${
+                  viewMode === 'sifaat'
+                    ? 'bg-amber-400 text-slate-950 shadow-md scale-105 font-black'
+                    : 'bg-indigo-950 hover:bg-indigo-900 text-indigo-200 border border-indigo-500/40'
+                }`}
+              >
+                <Layers className="w-4 h-4 text-indigo-300" />
+                <span>محاكي حركة الأوتار واللسان مع الصفات</span>
+              </button>
+            </>
+          )}
+
           <button
-            onClick={() => setShowQuiz(true)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold font-quran transition-all flex items-center gap-2 ${
-              showQuiz
+            onClick={() => setViewMode('quiz')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold font-quran transition-all flex items-center gap-2 cursor-pointer ${
+              viewMode === 'quiz'
                 ? 'bg-amber-400 text-slate-950 shadow-md scale-105'
                 : isIdgham
                 ? 'bg-indigo-900/90 text-amber-300 hover:bg-indigo-800 border border-purple-500/40'
@@ -324,25 +373,50 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
         </div>
       </div>
 
-      {!showQuiz ? (
+      {viewMode === 'atlas' && (
+        <div className="space-y-6">
+          <MakharijInteractiveAtlas />
+        </div>
+      )}
+
+      {viewMode === 'sifaat' && (
+        <div className="space-y-6">
+          <SifaatVocalSimulator />
+        </div>
+      )}
+
+      {viewMode === 'lesson' && (
         /* Lesson Detailed Content Structure */
         <div className="space-y-8">
           
           {/* STEP 1: Educational Objectives */}
           <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 font-bold text-sm flex items-center justify-center shrink-0 font-quran shadow-sm">
-                0{currentLesson.lessonNumber}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 font-bold text-sm flex items-center justify-center shrink-0 font-quran shadow-sm">
+                  0{currentLesson.lessonNumber}
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full font-tajawal border border-amber-200">
+                    أولاً: الأهداف التربوية والتعليمية للدرس
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold font-quran text-slate-900 mt-1">
+                    {currentLesson.title}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-tajawal">{currentLesson.subtitle}</p>
+                </div>
               </div>
-              <div>
-                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full font-tajawal border border-amber-200">
-                  أولاً: الأهداف التربوية والتعليمية للدرس
-                </span>
-                <h2 className="text-xl sm:text-2xl font-bold font-quran text-slate-900 mt-1">
-                  {currentLesson.title}
-                </h2>
-                <p className="text-xs text-slate-500 font-tajawal">{currentLesson.subtitle}</p>
-              </div>
+
+              {isTeacherMode && (
+                <button
+                  onClick={() => setShowClassifierModal(true)}
+                  className="bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold font-quran flex items-center gap-1.5 transition-all shadow-sm cursor-pointer shrink-0"
+                  title="تصنيف ونقل هذا الدرس إلى حقيبة أو مستوى دراسي آخر أو إنشاء حقيبة جديدة له"
+                >
+                  <FolderSync className="w-4 h-4 text-amber-800" />
+                  <span>تصنيف / نقل هذا الدرس</span>
+                </button>
+              )}
             </div>
 
             <div className={`p-5 rounded-2xl border space-y-3 ${
@@ -520,37 +594,88 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
 
             {/* Homework & Discussion Box */}
             <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
-              <div className="font-bold text-slate-900 font-quran text-base border-b border-slate-100 pb-2 flex items-center gap-2 justify-between">
+              <div className="font-bold text-slate-900 font-quran text-base border-b border-slate-100 pb-2 flex items-center gap-2 justify-between flex-wrap">
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-emerald-700" />
                   <span>أسئلة المناقشة والواجب المنزلي والتلاوة:</span>
                 </div>
-                {isTeacherMode && (
-                  <span className="text-[10px] font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-quran flex items-center gap-1">
-                    <UserCheck className="w-3 h-3" /> نسخة المعلم
+                {isTeacherGuideActive ? (
+                  <span className="text-[11px] font-bold bg-amber-400 text-slate-950 px-2.5 py-1 rounded-full font-quran flex items-center gap-1 shadow-sm">
+                    <UserCheck className="w-3.5 h-3.5 text-slate-950" />
+                    نسخة المعلم (الإجابات ظاهرة)
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-quran">
+                    نسخة الطالب (الأسئلة فقط)
                   </span>
                 )}
               </div>
 
-              <div className="space-y-3 text-xs font-tajawal">
+              {/* Teacher Mode Notice Banner */}
+              {isTeacherGuideActive && (
+                <div className="bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-emerald-500/10 border-2 border-amber-400/80 rounded-xl p-3 flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0">
+                      <UserCheck className="w-4 h-4 text-slate-950" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-950 font-quran text-xs sm:text-sm flex items-center gap-1.5">
+                        <span>دليل المعلم والمدرب: الإجابات النموذجية ومحاور النقاش مفعلة</span>
+                        <span className="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded-full font-sans font-bold">خاص بالمعلم</span>
+                      </div>
+                      <p className="text-[11px] text-slate-700 font-tajawal">
+                        هذه الإجابات ظاهرة أمامك الآن بصفتك معلماً، ومحجوبة تماماً وتلقائياً عن حسابات وشاشات الطلاب.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4 text-xs font-tajawal">
                 {/* Discussion Questions */}
-                <div className="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 space-y-2">
-                  <span className="font-bold text-amber-950 font-quran text-sm">أسئلة المناقشة التفاعلية:</span>
-                  <ul className="list-disc pr-4 space-y-1 text-slate-700">
+                <div className="bg-amber-50/80 p-4 rounded-xl border border-amber-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-950 font-quran text-sm flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      أسئلة المناقشة التفاعلية:
+                    </span>
+                    {!isTeacherGuideActive && (
+                      <span className="text-[10px] text-amber-800 bg-amber-200/60 px-2 py-0.5 rounded-md font-quran">
+                        موجهة لمشاركة الطلاب
+                      </span>
+                    )}
+                  </div>
+
+                  <ul className="list-disc pr-4 space-y-3 text-slate-800">
                     {currentLesson.discussionQuestions.map((q, i) => (
-                      <li key={i}>{q}</li>
+                      <li key={i} className="leading-relaxed">
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm">{q}</span>
+
+                        {/* Teacher In-Line Answer when teacher mode is active */}
+                        {isTeacherGuideActive && (
+                          <div className="mt-2 p-3 bg-amber-100/90 rounded-xl border-r-4 border-amber-600 text-slate-900 text-xs font-tajawal shadow-2xs">
+                            <span className="font-bold text-amber-950 font-quran flex items-center gap-1.5 text-xs mb-1">
+                              <UserCheck className="w-3.5 h-3.5 text-amber-800" />
+                              إجابة الشرح وتوجيه المعلم لسؤال {i + 1}:
+                            </span>
+                            <p className="text-slate-800 leading-relaxed font-tajawal text-xs sm:text-[13px] whitespace-pre-line">
+                              {activeDiscussionAnswers[i] || 'يوجّه المعلم المتدربين إلى استخراج الحكم وتطبيقه صوتاً وربطه بالقواعد التجويدية المقررة في الباب.'}
+                            </p>
+                          </div>
+                        )}
+                      </li>
                     ))}
                   </ul>
 
-                  {/* Teacher Answers for Discussion */}
-                  {isTeacherMode && currentLesson.discussionAnswers && currentLesson.discussionAnswers.length > 0 && (
+                  {/* Supplemental Discussion Answers if any */}
+                  {isTeacherGuideActive && activeDiscussionAnswers.length > currentLesson.discussionQuestions.length && (
                     <div className="mt-2 pt-2 border-t border-amber-300 space-y-1.5 bg-amber-100/90 p-3 rounded-lg">
                       <span className="font-bold text-amber-950 font-quran text-xs flex items-center gap-1.5">
                         <UserCheck className="w-3.5 h-3.5 text-amber-800" />
-                        إجابات الشرح وتوجيهات المعلم لأسئلة المناقشة:
+                        توجيهات وإجابات إضافية للمعلم:
                       </span>
                       <ul className="space-y-1.5 text-slate-800 text-xs font-tajawal list-disc pr-4">
-                        {currentLesson.discussionAnswers.map((ans, aIdx) => (
+                        {activeDiscussionAnswers.slice(currentLesson.discussionQuestions.length).map((ans, aIdx) => (
                           <li key={aIdx} className="leading-relaxed">{ans}</li>
                         ))}
                       </ul>
@@ -559,35 +684,63 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
                 </div>
 
                 {/* Homework Task */}
-                <div className="bg-purple-50/80 p-3.5 rounded-xl border border-purple-200 space-y-2">
-                  <span className="font-bold text-purple-950 font-quran text-sm">الواجب المنزلي المطلوب:</span>
-                  <p className="text-purple-900 leading-relaxed">{currentLesson.homeworkTask}</p>
+                <div className="bg-purple-50/80 p-4 rounded-xl border border-purple-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-purple-950 font-quran text-sm flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-purple-600" />
+                      الواجب المنزلي المطلوب:
+                    </span>
+                    {!isTeacherGuideActive && (
+                      <span className="text-[10px] text-purple-800 bg-purple-200/60 px-2 py-0.5 rounded-md font-quran">
+                        مطلوب إنجازه من الطالب
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-purple-950 leading-relaxed bg-white/80 p-3 rounded-xl border border-purple-100">
+                    {currentLesson.homeworkTask}
+                  </p>
 
                   {/* Teacher Solution for Homework */}
-                  {isTeacherMode && currentLesson.homeworkSolution && (
-                    <div className="mt-2 pt-2 border-t border-purple-300 space-y-1.5 bg-purple-100/90 p-3 rounded-lg text-xs">
-                      <span className="font-bold text-purple-950 font-quran flex items-center gap-1.5">
+                  {isTeacherGuideActive && (
+                    <div className="mt-2 pt-2 border-t border-purple-300 space-y-1.5 bg-purple-100/90 p-3.5 rounded-xl text-xs border-r-4 border-purple-600">
+                      <span className="font-bold text-purple-950 font-quran flex items-center gap-1.5 text-xs">
                         <UserCheck className="w-3.5 h-3.5 text-purple-800" />
-                        نموذج الإجابة والتصحيح لنسخة المعلم:
+                        نموذج الإجابة والتصحيح المعتمد لنسخة المعلم:
                       </span>
-                      <p className="text-purple-950 whitespace-pre-line leading-relaxed font-tajawal">{currentLesson.homeworkSolution}</p>
+                      <p className="text-purple-950 whitespace-pre-line leading-relaxed font-tajawal text-xs sm:text-[13px]">
+                        {activeHomeworkSolution || 'يصحح المعلم التطبيق بمطابقة الأمثلة المستخرجة مع الشروط والقواعد المحددة في الدرس.'}
+                      </p>
                     </div>
                   )}
                 </div>
 
                 {/* Recitation Task */}
-                <div className="bg-emerald-50/80 p-3.5 rounded-xl border border-emerald-200 space-y-2">
-                  <span className="font-bold text-emerald-950 font-quran text-sm">التكليف التطبيقي في التلاوة:</span>
-                  <p className="text-emerald-900 leading-relaxed">{currentLesson.recitationTask}</p>
+                <div className="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-950 font-quran text-sm flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-emerald-700" />
+                      التكليف التطبيقي في التلاوة:
+                    </span>
+                    {!isTeacherGuideActive && (
+                      <span className="text-[10px] text-emerald-800 bg-emerald-200/60 px-2 py-0.5 rounded-md font-quran">
+                        تطبيق صوتي مباشر
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-emerald-950 leading-relaxed bg-white/80 p-3 rounded-xl border border-emerald-100">
+                    {currentLesson.recitationTask}
+                  </p>
 
                   {/* Teacher Recitation Guide */}
-                  {isTeacherMode && currentLesson.recitationGuide && (
-                    <div className="mt-2 pt-2 border-t border-emerald-300 space-y-1.5 bg-emerald-100/90 p-3 rounded-lg text-xs">
-                      <span className="font-bold text-emerald-950 font-quran flex items-center gap-1.5">
+                  {isTeacherGuideActive && (
+                    <div className="mt-2 pt-2 border-t border-emerald-300 space-y-1.5 bg-emerald-100/90 p-3.5 rounded-xl text-xs border-r-4 border-emerald-600">
+                      <span className="font-bold text-emerald-950 font-quran flex items-center gap-1.5 text-xs">
                         <UserCheck className="w-3.5 h-3.5 text-emerald-800" />
                         توجيه المعلم والمدرب للطلاب عند الاستماع للتلاوة:
                       </span>
-                      <p className="text-emerald-950 leading-relaxed font-tajawal">{currentLesson.recitationGuide}</p>
+                      <p className="text-emerald-950 leading-relaxed font-tajawal text-xs sm:text-[13px]">
+                        {activeRecitationGuide || 'التركيز على ضبط الانتقال الصوتي وتطبيق الحكم بسلاسة دون تكلف، وتنبيه الطالب عند الخلط بين الحركات.'}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -595,7 +748,9 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
             </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {viewMode === 'quiz' && (
         /* Unit Review & Short Quiz Section */
         <div className="space-y-8">
           {/* Unit Review Box */}
@@ -695,6 +850,19 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
             )}
           </div>
         </div>
+      )}
+
+      {/* Lesson Classifier Modal for Teacher */}
+      {showClassifierModal && (
+        <LessonClassifierModal
+          initialCourseId={courseId}
+          initialUnitId={unit.id}
+          initialLessonId={currentLesson.id}
+          onClose={() => setShowClassifierModal(false)}
+          onSuccess={() => {
+            setShowClassifierModal(false);
+          }}
+        />
       )}
     </div>
   );
