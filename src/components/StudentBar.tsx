@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, Edit3, Check, Award, BookOpen, Trophy, School, 
-  ShieldCheck, Sparkles, Star, Share2, Calendar, FileText, Flame 
+  ShieldCheck, Sparkles, Star, Share2, Calendar, FileText, Flame, LogOut, AlertCircle 
 } from 'lucide-react';
-import { getStudentProfile, saveStudentProfile, subscribeStudentProfile } from '../utils/studentStorage';
+import { getStudentProfile, saveStudentProfile, subscribeStudentProfile, logoutStudent } from '../utils/studentStorage';
 import { getStudentProgress, subscribeStudentProgress, calculateProgressPercentage } from '../utils/studentProgressStorage';
 import { getCourseBadges, StudentBadge } from '../utils/badgeSystem';
 import { getDailyPlannerData, subscribeDailyPlanner, DailyPlannerData } from '../utils/dailyPlannerStorage';
@@ -40,6 +40,7 @@ export const StudentBar: React.FC<StudentBarProps> = ({
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
   const [isPlannerModalOpen, setIsPlannerModalOpen] = useState<boolean>(false);
   const [isNotesDrawerOpen, setIsNotesDrawerOpen] = useState<boolean>(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
 
   useEffect(() => {
     const handleProfile = (prof: StudentProfile | null) => {
@@ -115,7 +116,7 @@ export const StudentBar: React.FC<StudentBarProps> = ({
               </div>
               
               {profile?.name ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-slate-300">أهلاً بك:</span>
                   <span className="text-sm sm:text-base font-bold font-quran text-amber-200">{profile.name}</span>
                   {onOpenRegistrationModal && (
@@ -128,6 +129,14 @@ export const StudentBar: React.FC<StudentBarProps> = ({
                       <span>تعديل الحساب / الكود</span>
                     </button>
                   )}
+                  <button
+                    onClick={() => setShowLogoutConfirm(true)}
+                    className="text-red-300 hover:text-red-100 hover:bg-red-950/60 border border-red-500/40 rounded-lg px-2 py-0.5 text-xs font-quran flex items-center gap-1 transition-all cursor-pointer"
+                    title="تسجيل الخروج من حساب الطالب"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-red-400" />
+                    <span>تسجيل الخروج</span>
+                  </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
@@ -273,6 +282,41 @@ export const StudentBar: React.FC<StudentBarProps> = ({
         currentUnitNumber={currentUnitNumber}
         currentUnitTitle={currentUnitTitle}
       />
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 font-tajawal dir-rtl no-print animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-red-500/50 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/20 text-red-400 mx-auto flex items-center justify-center border border-red-500/30">
+              <LogOut className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base font-quran text-slate-100">تسجيل الخروج من الحساب</h3>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                هل ترغب بتسجيل الخروج؟ يمكنك تسجيل الدخول باسمك مجدداً في أي وقت مع الاحتفاظ بكافة تقدمك ودرجاتك السابقة.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  logoutStudent();
+                  setProfile(null);
+                  setShowLogoutConfirm(false);
+                }}
+                className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer transition-all shadow-md"
+              >
+                نعم، خروج
+              </button>
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer transition-all border border-slate-700"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

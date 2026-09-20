@@ -229,6 +229,16 @@ export const saveSubmission = async (
   return localSubmission;
 };
 
+export const logoutStudent = (): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(PROFILE_KEY);
+  }
+  notifyProfileListeners(null);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('tajweed_student_logout'));
+  }
+};
+
 export const clearStudentProfile = async (): Promise<void> => {
   const current = getStudentProfile();
   if (typeof window !== 'undefined') {

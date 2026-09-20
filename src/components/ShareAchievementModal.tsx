@@ -7,7 +7,9 @@ import {
 import { SingleCourseProgress } from '../utils/studentProgressStorage';
 import { StudentBadge } from '../utils/badgeSystem';
 import { StudentProfile } from '../types';
-import { ALL_COURSES, getCourseById } from '../data/courses';
+import { getAllCourses, getCourseById } from '../data/courses';
+import { getStudentProgress, calculateProgressPercentage } from '../utils/studentProgressStorage';
+import { getCourseBadges } from '../utils/badgeSystem';
 
 interface ShareAchievementModalProps {
   isOpen: boolean;
@@ -25,33 +27,68 @@ export const ShareAchievementModal: React.FC<ShareAchievementModalProps> = ({
   activeCourseId = 'sakinan',
   studentProfile,
   progress,
-  badges = [],
-  percentage = 100,
+  badges: initialBadges,
+  percentage: initialPercentage,
 }) => {
   const [copied, setCopied] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [selectedBagId, setSelectedBagId] = useState<string>(activeCourseId || 'sakinan');
+
+  // Synchronize when activeCourseId changes
+  React.useEffect(() => {
+    if (activeCourseId) {
+      setSelectedBagId(activeCourseId);
+    }
+  }, [activeCourseId]);
 
   if (!isOpen) return null;
 
-  const currentCourse = getCourseById(activeCourseId) || ALL_COURSES[0];
+  const allCourses = getAllCourses();
+  const isOverall = selectedBagId === 'all';
+  const currentCourse = isOverall ? null : (getCourseById(selectedBagId) || allCourses[0]);
+
+  // Compute stats based on selection
+  let effectivePercentage = initialPercentage ?? 0;
+  let effectiveProgress = progress;
+  let effectiveBadges = initialBadges || [];
+
+  if (isOverall) {
+    let totalPct = 0;
+    let combinedBadges: StudentBadge[] = [];
+    allCourses.forEach((c) => {
+      const p = getStudentProgress(c.id);
+      totalPct += calculateProgressPercentage(p, c.units?.length || 5);
+      combinedBadges = [...combinedBadges, ...getCourseBadges(p, c.id)];
+    });
+    effectivePercentage = Math.round(totalPct / Math.max(1, allCourses.length));
+    // Unique badges
+    effectiveBadges = Array.from(new Map(combinedBadges.map(b => [b.id, b])).values());
+  } else if (selectedBagId !== activeCourseId || !progress) {
+    const p = getStudentProgress(selectedBagId);
+    effectiveProgress = p;
+    effectivePercentage = calculateProgressPercentage(p, currentCourse?.units?.length || 5);
+    effectiveBadges = getCourseBadges(p, selectedBagId);
+  }
+
   const studentName = studentProfile?.name || 'طالب قرآن كريم';
-  const unlockedBadges = badges.filter((b) => b.isUnlocked);
-  const examScore = progress?.examBestScore ?? 100;
-  const isExamPassed = progress?.examCompleted && examScore >= 90;
+  const unlockedBadges = effectiveBadges.filter((b) => b.isUnlocked);
+  const examScore = effectiveProgress?.examBestScore ?? (isOverall ? 95 : 100);
 
   // Grade descriptor
   let gradeText = 'ممتاز مع مرتبة الشرف';
   if (examScore < 90 && examScore >= 80) gradeText = 'جيد جداً مرتفع';
   else if (examScore < 80) gradeText = 'جيد';
 
+  const courseTitle = isOverall ? 'كافة الحقائب التجويدية المعتمدة' : currentCourse?.title || 'حقيبة تجويدية';
+
   // Pre-formatted share text
-  const shareText = `🌟 بفضل الله وتوفيقه، حققت إنجازاً متميزاً في دورة: "${currentCourse.title}" عبر منصة الحقائب التجويدية التفاعلية!
-🎖️ نسبة الإنجاز: ${percentage}%
-🏆 درجة الاختبار الشامل: ${examScore}% (${gradeText})
+  const shareText = `🌟 بفضل الله وتوفيقه، حققت إنجازاً متميزاً في: "${courseTitle}" عبر منصة الحقائب التجويدية التفاعلية!
+🎖️ نسبة الإنجاز والتقدم: ${effectivePercentage}%
+🏆 درجة الاختبار: ${examScore}% (${gradeText})
 🏅 الأوسمة المكتسبة: ${unlockedBadges.length} أوسمة إتقان
 👤 الدارس: ${studentName}
 ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studentProfile.trainerName}` : ''}
-📖 تعلم أحكام التلاوة والتجويد عبر الرابط: ${window.location.origin}`;
+📖 رابط المنصة التعليمية: ${window.location.origin}`;
 
   const handleCopyText = async () => {
     try {
@@ -75,7 +112,7 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `إنجاز تجويدي: ${studentName} - ${currentCourse.title}`,
+          title: `إنجاز تجويدي: ${studentName} - ${courseTitle}`,
           text: shareText,
           url: window.location.origin,
         });
@@ -96,7 +133,7 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
 
   const handleTwitterShare = () => {
     const tweetText = encodeURIComponent(
-      `🌟 بفضل الله أتممت دراسة "${currentCourse.title}" بنسبة ${percentage}% ودرجة ${examScore}% في الاختبار الشامل! 📖 #تجويد #القرآن_الكريم`
+      `🌟 بفضل الله أتممت دراسة "${courseTitle}" بنسبة ${effectivePercentage}% ودرجة ${examScore}% في الاختبار الشامل! 📖 #تجويد #القرآن_الكريم`
     );
     window.open(`https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(window.location.origin)}`, '_blank');
   };
@@ -104,6 +141,11 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
   const handleTelegramShare = () => {
     const encoded = encodeURIComponent(shareText);
     window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encoded}`, '_blank');
+  };
+
+  const handleFacebookShare = () => {
+    const url = encodeURIComponent(window.location.origin);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
   };
 
   return (
@@ -121,7 +163,7 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
                 مشاركة بطاقة الإنجاز والتميز
               </h2>
               <p className="text-xs text-slate-300">
-                شارك نتائجك وأوسمتك المكتسبة مع أهلك ومعلمك على وسائل التواصل
+                شارك نتائجك وأوسمتك المكتسبة في الحقائب التدريبية عبر تطبيقات التواصل الاجتماعي
               </p>
             </div>
           </div>
@@ -135,7 +177,39 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
           </button>
         </div>
 
-        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
+        <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
+
+          {/* Bag Selector Tabs */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-300 font-quran">
+              اختر الحقيبة التدريبية المراد مشاركة إنجازها:
+            </label>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs font-quran">
+              <button
+                onClick={() => setSelectedBagId('all')}
+                className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all font-bold cursor-pointer flex items-center gap-1 border ${
+                  selectedBagId === 'all'
+                    ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-sm font-extrabold'
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                }`}
+              >
+                <span>🌟 التقدم الشامل (كافة الحقائب)</span>
+              </button>
+              {allCourses.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedBagId(c.id)}
+                  className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all font-bold cursor-pointer border ${
+                    selectedBagId === c.id
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-sm font-extrabold'
+                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                  }`}
+                >
+                  <span>{c.shortTitle || c.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Achievement Visual Card Preview */}
           <div className="bg-gradient-to-b from-emerald-950 via-slate-950 to-slate-900 border-2 border-amber-400/40 rounded-3xl p-6 shadow-xl relative overflow-hidden text-center space-y-4">
@@ -163,7 +237,7 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
                 {studentName}
               </h3>
               <p className="text-xs text-emerald-200/90 font-quran mt-0.5">
-                أتم بنجاح متطلبات: <strong className="text-amber-300">{currentCourse.title}</strong>
+                أتم بنجاح متطلبات: <strong className="text-amber-300">{courseTitle}</strong>
               </p>
             </div>
 
@@ -171,7 +245,7 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
             <div className="grid grid-cols-3 gap-2.5 pt-2">
               <div className="bg-slate-900/90 border border-emerald-700/50 rounded-2xl p-2.5">
                 <span className="text-[10px] text-slate-400 block font-quran">نسبة الإنجاز</span>
-                <span className="text-base font-black text-amber-400 font-sans">{percentage}%</span>
+                <span className="text-base font-black text-amber-400 font-sans">{effectivePercentage}%</span>
               </div>
               <div className="bg-slate-900/90 border border-emerald-700/50 rounded-2xl p-2.5">
                 <span className="text-[10px] text-slate-400 block font-quran">درجة الاختبار</span>
@@ -214,10 +288,10 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
           {/* Share Channels */}
           <div className="space-y-3">
             <label className="block text-xs font-bold text-slate-300 font-quran">
-              اختر وسيلة المشاركة السريعة:
+              اختر وسيلة المشاركة عبر تطبيقات التواصل الاجتماعي:
             </label>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {/* WhatsApp */}
               <button
                 onClick={handleWhatsAppShare}
@@ -225,15 +299,6 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
               >
                 <MessageCircle className="w-5 h-5 fill-current" />
                 <span>واتساب</span>
-              </button>
-
-              {/* Twitter / X */}
-              <button
-                onClick={handleTwitterShare}
-                className="bg-slate-800 hover:bg-slate-700 text-white font-bold p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer border border-slate-700 text-xs"
-              >
-                <span className="font-sans text-base font-black">𝕏</span>
-                <span>تويتر / إكس</span>
               </button>
 
               {/* Telegram */}
@@ -245,13 +310,31 @@ ${studentProfile?.trainerName ? `👨‍🏫 بإشراف المعلم: ${studen
                 <span>تيليجرام</span>
               </button>
 
-              {/* Native / Copy */}
+              {/* Twitter / X */}
+              <button
+                onClick={handleTwitterShare}
+                className="bg-slate-800 hover:bg-slate-700 text-white font-bold p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer border border-slate-700 text-xs"
+              >
+                <span className="font-sans text-base font-black">𝕏</span>
+                <span>تويتر / إكس</span>
+              </button>
+
+              {/* Facebook */}
+              <button
+                onClick={handleFacebookShare}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md text-xs"
+              >
+                <span className="font-sans text-base font-black">f</span>
+                <span>فيسبوك</span>
+              </button>
+
+              {/* Native Share Sheet */}
               <button
                 onClick={handleNativeShare}
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md text-xs"
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md text-xs col-span-2 sm:col-span-1"
               >
                 <Share2 className="w-5 h-5" />
-                <span>مشاركة الكل</span>
+                <span>مشاركة</span>
               </button>
             </div>
           </div>

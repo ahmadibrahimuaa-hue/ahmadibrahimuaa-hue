@@ -2,7 +2,12 @@ import React from 'react';
 import { Course } from '../types';
 import { getAllCourses } from '../data/courses';
 import { isCourseUnlocked } from '../utils/studentProgressStorage';
-import { BookOpen, GraduationCap, Table, HelpCircle, Bookmark, Printer, Book, ShieldAlert, Award, Layers, UserCheck, Lock, Users, ShieldCheck, Moon, Sun, Trophy, Grid, ChevronDown, Briefcase, PlusCircle, Type, BookMarked } from 'lucide-react';
+import { 
+  BookOpen, GraduationCap, Table, HelpCircle, Bookmark, Printer, Book, 
+  ShieldAlert, Award, Layers, UserCheck, Lock, Users, ShieldCheck, Moon, 
+  Sun, Trophy, Grid, ChevronDown, Briefcase, PlusCircle, Type, BookMarked,
+  Search, Share2, LogOut, User
+} from 'lucide-react';
 import { WhatsAppSupport } from './WhatsAppSupport';
 
 interface HeaderProps {
@@ -19,6 +24,10 @@ interface HeaderProps {
   onOpenCertificateEditor?: () => void;
   onOpenBagManagement?: () => void;
   onOpenFontModal?: () => void;
+  onOpenSearch?: () => void;
+  onOpenShareModal?: () => void;
+  onLogoutStudent?: () => void;
+  studentName?: string;
   isNightMode: boolean;
   setIsNightMode: (val: boolean) => void;
   onOpenProgressModal: () => void;
@@ -40,6 +49,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCertificateEditor,
   onOpenBagManagement,
   onOpenFontModal,
+  onOpenSearch,
+  onOpenShareModal,
+  onLogoutStudent,
+  studentName,
   isNightMode,
   setIsNightMode,
   onOpenProgressModal,
@@ -117,6 +130,46 @@ export const Header: React.FC<HeaderProps> = ({
               <Trophy className="w-3.5 h-3.5 text-amber-400" />
               <span>التقدم الدراسي ({progressPercentage}%)</span>
             </button>
+
+            {/* Search Sakinan Course Button */}
+            {onOpenSearch && (
+              <button
+                onClick={onOpenSearch}
+                className={`text-xs font-bold px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer font-quran border ${
+                  isIdgham
+                    ? 'bg-purple-900/80 hover:bg-purple-800 text-amber-200 border-purple-700'
+                    : 'bg-emerald-900/90 hover:bg-emerald-800 text-amber-300 border-emerald-700'
+                }`}
+                title="البحث السريع في شواهد ودروس وأمثلة حقيبة التقاء الساكنين"
+              >
+                <Search className="w-3.5 h-3.5 text-amber-400" />
+                <span>بحث الحقيبة 🔍</span>
+              </button>
+            )}
+
+            {/* Share Achievement Button */}
+            {onOpenShareModal && (
+              <button
+                onClick={onOpenShareModal}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-3 py-1 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer font-quran shadow-sm"
+                title="مشاركة إنجازك وتقدمك الدراسي على وسائل التواصل الاجتماعي"
+              >
+                <Share2 className="w-3.5 h-3.5 text-slate-950 fill-current" />
+                <span>مشاركة</span>
+              </button>
+            )}
+
+            {/* Student Logout Button */}
+            {studentName && onLogoutStudent && !isTeacherMode && (
+              <button
+                onClick={onLogoutStudent}
+                className="bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-500/50 text-xs font-bold px-2.5 py-1 rounded-xl transition-all flex items-center gap-1 cursor-pointer font-quran"
+                title="تسجيل الخروج من الحساب"
+              >
+                <LogOut className="w-3.5 h-3.5 text-red-400" />
+                <span>خروج</span>
+              </button>
+            )}
 
             {/* Quran Font Customizer Button */}
             {onOpenFontModal && (
@@ -324,6 +377,22 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Sakinan Quick Search Trigger */}
+                {onOpenSearch && (
+                  <button
+                    onClick={onOpenSearch}
+                    className={`text-xs font-bold px-3 py-0.5 rounded-full transition-all flex items-center gap-1.5 cursor-pointer font-quran border ${
+                      isIdgham
+                        ? 'bg-purple-900 hover:bg-purple-800 text-amber-200 border-purple-500/40'
+                        : 'bg-emerald-900 hover:bg-emerald-800 text-amber-300 border-emerald-600/60'
+                    }`}
+                    title="بحث فوري في شواهد وأمثلة ودروس حقيبة التقاء الساكنين"
+                  >
+                    <Search className="w-3 h-3 text-amber-400" />
+                    <span>بحث في المحتوى 🔍</span>
+                  </button>
+                )}
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-extrabold font-quran text-amber-100 tracking-wide mt-1">

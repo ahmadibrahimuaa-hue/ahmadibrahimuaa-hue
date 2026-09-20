@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { Course } from '../types';
+import { Course, StudentProfile } from '../types';
 import { getAllCourses } from '../data/courses';
 import { getStudentProgress, calculateProgressPercentage, isCourseUnlocked, isCoursePassed } from '../utils/studentProgressStorage';
-import { Sparkles, BookOpen, GraduationCap, Award, CheckCircle2, ArrowLeft, Trophy, ShieldCheck, Lock, Unlock, AlertTriangle, Layers, X, Briefcase, DollarSign, Gift } from 'lucide-react';
+import { 
+  Sparkles, BookOpen, GraduationCap, Award, CheckCircle2, ArrowLeft, 
+  Trophy, ShieldCheck, Lock, Unlock, AlertTriangle, Layers, X, Briefcase, 
+  DollarSign, Gift, Search, Share2, LogOut, User 
+} from 'lucide-react';
 import { WhatsAppSupport } from './WhatsAppSupport';
 
 interface PlatformHomeProps {
@@ -10,6 +14,10 @@ interface PlatformHomeProps {
   onOpenTeacherDashboard: () => void;
   onOpenProgressModal: () => void;
   onOpenBagManagement?: () => void;
+  onOpenSearch?: () => void;
+  onOpenShareModal?: () => void;
+  onLogout?: () => void;
+  studentProfile?: StudentProfile | null;
   isTeacherMode?: boolean;
 }
 
@@ -18,6 +26,10 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
   onOpenTeacherDashboard,
   onOpenProgressModal,
   onOpenBagManagement,
+  onOpenSearch,
+  onOpenShareModal,
+  onLogout,
+  studentProfile,
   isTeacherMode = false,
 }) => {
   const [lockedCourseModal, setLockedCourseModal] = useState<string | null>(null);
@@ -77,6 +89,28 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
               <span>عرض لوحة تقدم الطالب في كافة الدورات</span>
             </button>
 
+            {onOpenShareModal && (
+              <button
+                onClick={onOpenShareModal}
+                className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                title="مشاركة إنجازك وتقدمك الدراسي على وسائل التواصل الاجتماعي"
+              >
+                <Share2 className="w-4 h-4 text-slate-950 fill-current" />
+                <span>مشاركة الإنجاز والتقدم 🚀</span>
+              </button>
+            )}
+
+            {onOpenSearch && (
+              <button
+                onClick={onOpenSearch}
+                className="bg-emerald-800/90 hover:bg-emerald-700 text-amber-200 border border-emerald-600/80 font-bold px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                title="البحث السريع عن كلمات وشواهد ودروس داخل حقيبة التقاء الساكنين"
+              >
+                <Search className="w-4 h-4 text-amber-300" />
+                <span>البحث في حقيبة التقاء الساكنين 🔍</span>
+              </button>
+            )}
+
             <button
               onClick={onOpenTeacherDashboard}
               className="bg-emerald-900/90 hover:bg-emerald-800 text-emerald-100 border border-emerald-700 font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer"
@@ -92,6 +126,17 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
               >
                 <Briefcase className="w-4 h-4 text-amber-400" />
                 <span>إدارة الحقائب والدروس والأسعار ⚙️</span>
+              </button>
+            )}
+
+            {studentProfile?.name && onLogout && (
+              <button
+                onClick={onLogout}
+                className="bg-red-950/70 hover:bg-red-900 text-red-200 border border-red-500/40 font-bold px-3.5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer text-xs"
+                title="تسجيل الخروج من حساب الطالب"
+              >
+                <LogOut className="w-4 h-4 text-red-400" />
+                <span>تسجيل الخروج ({studentProfile.name})</span>
               </button>
             )}
           </div>
@@ -253,11 +298,50 @@ export const PlatformHome: React.FC<PlatformHomeProps> = ({
                 }`}>
                   {!isComingSoon && (!isPaid || unlocked) && (
                     <div className="space-y-1.5">
-                      <div className={`flex items-center justify-between text-xs font-bold font-quran ${
+                      <div className={`flex items-center justify-between text-xs font-bold font-quran flex-wrap gap-1 ${
                         isIdgham ? (unlocked ? 'text-purple-200' : 'text-slate-400') : 'text-slate-700'
                       }`}>
-                        <span>التقدم الدراسي الشخصي:</span>
-                        <span className={`font-sans ${isIdgham ? 'text-amber-300' : 'text-emerald-800'}`}>{pct}%</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>التقدم الدراسي:</span>
+                          <span className={`font-sans font-bold ${isIdgham ? 'text-amber-300' : 'text-emerald-800'}`}>{pct}%</span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1.5">
+                          {course.id === 'sakinan' && onOpenSearch && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenSearch();
+                              }}
+                              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border ${
+                                isIdgham
+                                  ? 'bg-purple-900/60 hover:bg-purple-800 text-purple-200 border-purple-700'
+                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                              }`}
+                              title="بحث سريع في شواهد ودروس حقيبة التقاء الساكنين"
+                            >
+                              <Search className="w-3 h-3" />
+                              <span>بحث الشواهد</span>
+                            </button>
+                          )}
+                          {onOpenShareModal && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenShareModal();
+                              }}
+                              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border ${
+                                isIdgham
+                                  ? 'bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border-amber-400/40'
+                                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                              }`}
+                              title="مشاركة إنجاز وتقدم هذه الحقيبة على وسائل التواصل"
+                            >
+                              <Share2 className="w-3 h-3" />
+                              <span>مشاركة الإنجاز</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className={`w-full h-2.5 rounded-full overflow-hidden border ${
                         isIdgham ? 'bg-indigo-950 border-purple-900' : 'bg-slate-100 border-slate-200'

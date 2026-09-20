@@ -27,9 +27,14 @@ import { subscribeCourses } from './utils/courseCustomStorage';
 import { Course, StudentProfile, TrainerAccount } from './types';
 import { SUMMARY_TABLE_DATA } from './data/summaryData';
 import { WhatsAppSupport, FloatingWhatsAppSupport } from './components/WhatsAppSupport';
+import { SakinanSearchBar } from './components/SakinanSearchBar';
+import { SakinanSearchResult } from './utils/sakinanSearchEngine';
+import { ShareAchievementModal } from './components/ShareAchievementModal';
+import { logoutStudent } from './utils/studentStorage';
 import { 
   BookOpen, GraduationCap, Table, Bookmark, Book, 
-  Layers, ChevronRight, ChevronLeft, ShieldCheck, Lock, CheckCircle2, X, AlertTriangle, ArrowLeft, Briefcase, Award 
+  Layers, ChevronRight, ChevronLeft, ShieldCheck, Lock, CheckCircle2, X, AlertTriangle, ArrowLeft, Briefcase, Award,
+  Search, Share2, LogOut
 } from 'lucide-react';
 
 export default function App() {
@@ -40,6 +45,36 @@ export default function App() {
   const [isExamActive, setIsExamActive] = useState<boolean>(false);
   const [showBagManagementModal, setShowBagManagementModal] = useState<boolean>(false);
   const [showFontModal, setShowFontModal] = useState<boolean>(false);
+  const [showSearchModal, setShowSearchModal] = useState<boolean>(false);
+  const [showShareModal, setShowShareModal] = useState<boolean>(false);
+  const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState<boolean>(false);
+
+  // Keyboard shortcut (Ctrl+K or Cmd+K) to open search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowSearchModal((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleSelectSearchResult = (result: SakinanSearchResult) => {
+    setShowSearchModal(false);
+    setActiveCourseId('sakinan');
+    setActiveTab(result.targetTab);
+    if (result.unitIndex !== undefined) {
+      setSelectedUnitIndex(result.unitIndex);
+    }
+  };
+
+  const handleLogout = () => {
+    logoutStudent();
+    setStudentProfile(null);
+    setShowLogoutConfirmModal(false);
+  };
 
   // Subscribe to dynamic courses changes
   useEffect(() => {
@@ -216,6 +251,10 @@ export default function App() {
           setIsNightMode={setIsNightMode}
           onOpenProgressModal={() => setShowProgressModal(true)}
           onOpenFontModal={() => setShowFontModal(true)}
+          onOpenSearch={() => setShowSearchModal(true)}
+          onOpenShareModal={() => setShowShareModal(true)}
+          onLogoutStudent={() => setShowLogoutConfirmModal(true)}
+          studentName={studentProfile?.name}
           progressPercentage={progressPct}
           completedUnitsCount={completedUnitsCount}
         />
@@ -275,6 +314,10 @@ export default function App() {
               onOpenTeacherDashboard={() => setShowTeacherDashboard(true)}
               onOpenProgressModal={() => setShowProgressModal(true)}
               onOpenBagManagement={() => setShowBagManagementModal(true)}
+              onOpenSearch={() => setShowSearchModal(true)}
+              onOpenShareModal={() => setShowShareModal(true)}
+              onLogout={() => setShowLogoutConfirmModal(true)}
+              studentProfile={studentProfile}
               isTeacherMode={isTeacherMode}
             />
           ) : shouldShowLockedPreview ? (
@@ -625,6 +668,67 @@ export default function App() {
 
       {/* Quran Font Picker Modal */}
       <QuranFontModal isOpen={showFontModal} onClose={() => setShowFontModal(false)} />
+
+      {/* Fast Sakinan Search Bar Modal */}
+      <SakinanSearchBar
+        isOpen={showSearchModal}
+        onClose={() => setShowSearchModal(false)}
+        onSelectResult={handleSelectSearchResult}
+      />
+
+      {/* Share Achievement Modal */}
+      <ShareAchievementModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        activeCourseId={activeCourseId}
+        studentProfile={studentProfile}
+        progress={studentProgress}
+        percentage={progressPct}
+      />
+
+      {/* Student Logout Confirmation Modal */}
+      {showLogoutConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs font-tajawal animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border-2 border-red-200 shadow-2xl text-right space-y-5">
+            <div className="flex items-center justify-between border-b border-red-100 pb-3">
+              <div className="flex items-center gap-2 text-red-700 font-bold font-quran text-lg">
+                <LogOut className="w-5 h-5 text-red-600" />
+                <span>تأكيد تسجيل الخروج</span>
+              </div>
+              <button
+                onClick={() => setShowLogoutConfirmModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-full cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-700 leading-relaxed font-medium">
+              هل أنت متأكد من رغبتك في تسجيل الخروج من حساب الطالب{' '}
+              <strong className="text-slate-900 font-bold font-quran">
+                {studentProfile?.name || ''}
+              </strong>
+              ؟ ستبقى نتائجك وبياناتك محفوظة في هذا المتصفح ويمكنك العودة وإعادة تسجيل الدخول في أي وقت.
+            </p>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={handleLogout}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-xl transition-all cursor-pointer text-sm shadow-md flex items-center justify-center gap-1.5"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>نعم، تسجيل الخروج</span>
+              </button>
+              <button
+                onClick={() => setShowLogoutConfirmModal(false)}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-4 rounded-xl transition-all cursor-pointer text-sm"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className={`py-8 mt-12 no-print border-t transition-colors duration-300 ${
