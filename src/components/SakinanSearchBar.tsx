@@ -11,7 +11,8 @@ import {
 } from '../utils/sakinanSearchEngine';
 
 interface SakinanSearchBarProps {
-  onNavigateTo: (tab: string, unitIndex?: number, lessonId?: string, exampleId?: string) => void;
+  onNavigateTo?: (tab: string, unitIndex?: number, lessonId?: string, exampleId?: string) => void;
+  onSelectResult?: (result: SakinanSearchResult) => void;
   isOpen?: boolean;
   onClose?: () => void;
   mode?: 'embedded' | 'modal';
@@ -19,9 +20,10 @@ interface SakinanSearchBarProps {
 
 export const SakinanSearchBar: React.FC<SakinanSearchBarProps> = ({
   onNavigateTo,
+  onSelectResult,
   isOpen = true,
   onClose,
-  mode = 'embedded',
+  mode = 'modal',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<SearchResultCategory>('all');
@@ -31,8 +33,8 @@ export const SakinanSearchBar: React.FC<SakinanSearchBarProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (searchQuery.trim().length >= 2) {
-      const found = searchSakinanCourse(searchQuery, activeCategory, 30);
+    if (searchQuery.trim().length >= 1) {
+      const found = searchSakinanCourse(searchQuery, activeCategory, 35);
       setResults(found);
     } else {
       setResults([]);
@@ -77,7 +79,12 @@ export const SakinanSearchBar: React.FC<SakinanSearchBarProps> = ({
   };
 
   const handleSelectResult = (item: SakinanSearchResult) => {
-    onNavigateTo(item.targetTab, item.unitIndex, item.lessonId, item.exampleId);
+    if (onSelectResult) {
+      onSelectResult(item);
+    }
+    if (onNavigateTo) {
+      onNavigateTo(item.targetTab, item.unitIndex, item.lessonId, item.exampleId);
+    }
     if (onClose) onClose();
     setIsFocused(false);
   };
@@ -157,8 +164,8 @@ export const SakinanSearchBar: React.FC<SakinanSearchBarProps> = ({
         })}
       </div>
 
-      {/* Popular Search Suggestions (shown when query is empty or short) */}
-      {searchQuery.trim().length < 2 && (
+      {/* Popular Search Suggestions (shown when query is empty) */}
+      {searchQuery.trim().length === 0 && (
         <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-3 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-bold font-quran">
             <span className="flex items-center gap-1">
@@ -186,7 +193,7 @@ export const SakinanSearchBar: React.FC<SakinanSearchBarProps> = ({
       )}
 
       {/* Search Results List */}
-      {searchQuery.trim().length >= 2 && (
+      {searchQuery.trim().length > 0 && (
         <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
           <div className="flex items-center justify-between text-xs font-quran px-1 text-slate-500 dark:text-slate-400">
             <span>
@@ -279,8 +286,15 @@ export const SakinanSearchBar: React.FC<SakinanSearchBarProps> = ({
   if (mode === 'modal') {
     if (!isOpen) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-        <div className="bg-white dark:bg-slate-950 rounded-3xl max-w-3xl w-full p-4 sm:p-6 border-2 border-amber-400 shadow-2xl space-y-4 text-right relative mt-6 sm:mt-12">
+      <div 
+        className="fixed inset-0 z-[100] flex items-start justify-center p-3 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-fadeIn overflow-y-auto"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && onClose) {
+            onClose();
+          }
+        }}
+      >
+        <div className="bg-white dark:bg-slate-950 rounded-3xl max-w-3xl w-full p-4 sm:p-6 border-2 border-amber-400 shadow-2xl space-y-4 text-right relative mt-6 sm:mt-10 mb-8">
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center">
@@ -300,6 +314,7 @@ export const SakinanSearchBar: React.FC<SakinanSearchBarProps> = ({
               <button
                 onClick={onClose}
                 className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                title="إغلاق نافذة البحث"
               >
                 <X className="w-5 h-5" />
               </button>

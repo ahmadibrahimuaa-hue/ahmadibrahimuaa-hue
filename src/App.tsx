@@ -269,9 +269,38 @@ export default function App() {
                 activeCourseId={activeCourseId}
                 onOpenProgressModal={() => setShowProgressModal(true)} 
                 onOpenRegistrationModal={() => setShowRegistrationModal(true)}
+                onOpenSearch={() => setShowSearchModal(true)}
                 currentUnitNumber={currentUnit?.unitNumber}
                 currentUnitTitle={currentUnit?.title}
               />
+            </div>
+          )}
+
+          {/* Quick Sakinan Search Bar Trigger inside the course */}
+          {activeCourseId === 'sakinan' && activeTab !== 'home' && !shouldShowLockedPreview && (
+            <div className="no-print bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 rounded-2xl p-3 sm:p-4 border-2 border-amber-400/60 shadow-lg text-white flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center shrink-0">
+                  <Search className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold font-quran text-amber-200">
+                    البحث السريع في حقيبة «التقاء الساكنين»
+                  </h4>
+                  <p className="text-xs text-emerald-200/80">
+                    ابحث فوراً في جميع الشواهد القرآنية، الدروس، الكلمات المستثناة، وقواعد التخلص
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowSearchModal(true)}
+                className="w-full sm:w-auto bg-amber-400 hover:bg-amber-300 text-slate-950 px-5 py-2 rounded-xl font-bold font-quran text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                title="افتح شريط البحث الفوري (Ctrl + K)"
+              >
+                <Search className="w-4 h-4 text-slate-950" />
+                <span>افتح شريط البحث الفوري 🔍 (Ctrl + K)</span>
+              </button>
             </div>
           )}
 
@@ -671,9 +700,16 @@ export default function App() {
 
       {/* Fast Sakinan Search Bar Modal */}
       <SakinanSearchBar
+        mode="modal"
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
         onSelectResult={handleSelectSearchResult}
+        onNavigateTo={(tab, unitIdx) => {
+          setShowSearchModal(false);
+          setActiveCourseId('sakinan');
+          setActiveTab(tab as any);
+          if (unitIdx !== undefined) setSelectedUnitIndex(unitIdx);
+        }}
       />
 
       {/* Share Achievement Modal */}

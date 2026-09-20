@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, Edit3, Check, Award, BookOpen, Trophy, School, 
-  ShieldCheck, Sparkles, Star, Share2, Calendar, FileText, Flame, LogOut, AlertCircle 
+  ShieldCheck, Sparkles, Star, Share2, Calendar, FileText, Flame, LogOut, AlertCircle, Search 
 } from 'lucide-react';
 import { getStudentProfile, saveStudentProfile, subscribeStudentProfile, logoutStudent } from '../utils/studentStorage';
 import { getStudentProgress, subscribeStudentProgress, calculateProgressPercentage } from '../utils/studentProgressStorage';
@@ -17,6 +17,7 @@ import { StudentProfile } from '../types';
 interface StudentBarProps {
   onOpenProgressModal?: () => void;
   onOpenRegistrationModal?: () => void;
+  onOpenSearch?: () => void;
   activeCourseId?: string;
   currentUnitNumber?: number;
   currentUnitTitle?: string;
@@ -25,6 +26,7 @@ interface StudentBarProps {
 export const StudentBar: React.FC<StudentBarProps> = ({ 
   onOpenProgressModal,
   onOpenRegistrationModal,
+  onOpenSearch,
   activeCourseId = 'sakinan',
   currentUnitNumber,
   currentUnitTitle,
@@ -209,6 +211,21 @@ export const StudentBar: React.FC<StudentBarProps> = ({
                 <span className="text-xs font-bold font-quran">{notesCount} ملاحظة</span>
               </div>
             </button>
+
+            {/* Sakinan Search Button */}
+            {onOpenSearch && activeCourseId === 'sakinan' && (
+              <button
+                onClick={onOpenSearch}
+                className="bg-slate-950/80 hover:bg-slate-900 border border-amber-400/60 hover:border-amber-300 rounded-xl px-3 py-2 transition-all flex items-center gap-2 cursor-pointer shadow-inner text-amber-300"
+                title="البحث السريع في حقيبة التقاء الساكنين (Ctrl + K)"
+              >
+                <Search className="w-4 h-4 text-amber-400" />
+                <div className="text-right">
+                  <span className="text-[10px] text-amber-400/80 block font-quran">البحث الفوري:</span>
+                  <span className="text-xs font-bold font-quran">بحث الحقيبة 🔍</span>
+                </div>
+              </button>
+            )}
 
             {/* Share Achievement Button */}
             <button

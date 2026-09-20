@@ -25,18 +25,18 @@ export interface SakinanSearchResult {
 
 /**
  * دالة توحيد وتطبيع النص العربي للبحث السريع الذكي
- * تزيل التشكيل (الحركات)، وتوحّد الألفات والهمزات، والهاء/التاء المربوطة، والألف المقصورة
+ * تزيل التشكيل (الحركات)، التنوين، سكون وضبط المصحف الشريف، وتوحّد الألفات والهمزات، والهاء/التاء المربوطة، والألف المقصورة
  */
 export function normalizeArabicText(text: string): string {
   if (!text) return '';
   return text
-    // إزالة التشكيل والتنوين والسكون والشدة
-    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+    // إزالة علامات التشكيل، التنوين، السكون المصحفي، وعلامات الضبط العثمانية
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
     // إزالة علامات المصحف الخاصة والأقواس
-    .replace(/[﴿﴾«»""''(){}\[\],،.:;؟!\-–—/\\_]/g, ' ')
-    // توحيد الألف والهمزات
+    .replace(/[﴿﴾«»""''(){}\[\]<>،.:;؟!\-–—/\\_~*^#]/g, ' ')
+    // توحيد جميع أشكال الألف والهمزة (أ، إ، آ، ٱ -> ا)
     .replace(/[إأآٱآأإ]/g, 'ا')
-    .replace(/[ء]/g, '')
+    .replace(/ء/g, '')
     // توحيد الياء والألف المقصورة
     .replace(/ى/g, 'ي')
     // توحيد التاء المربوطة والهاء
@@ -75,11 +75,14 @@ function extractSnippet(fullText: string, queryRaw: string, maxLength: number = 
 }
 
 /**
- * فحص ما إذا كان النص يحتوي على الكلمة المبحوث عنها بعد التطبيع
+ * فحص ما إذا كان النص يحتوي على الكلمة المبحوث عنها بعد التطبيع ومطابقة الكلمات
  */
-function textMatches(sourceText: string, normalizedQuery: string): boolean {
+function textMatches(sourceText: string, normalizedQuery: string, tokens: string[] = []): boolean {
   if (!sourceText || !normalizedQuery) return false;
-  return normalizeArabicText(sourceText).includes(normalizedQuery);
+  const normSource = normalizeArabicText(sourceText);
+  if (normSource.includes(normalizedQuery)) return true;
+  if (tokens.length > 1 && tokens.every(tok => normSource.includes(tok))) return true;
+  return false;
 }
 
 /**
@@ -88,28 +91,28 @@ function textMatches(sourceText: string, normalizedQuery: string): boolean {
 export function searchSakinanCourse(
   query: string,
   category: SearchResultCategory = 'all',
-  limit: number = 25
+  limit: number = 30
 ): SakinanSearchResult[] {
   const trimmed = query.trim();
-  if (!trimmed || trimmed.length < 2) {
+  if (!trimmed) {
     return [];
   }
 
   const normQuery = normalizeArabicText(trimmed);
-  const queryTokens = normQuery.split(' ').filter(t => t.length > 1);
+  const queryTokens = normQuery.split(' ').filter(t => t.length > 0);
   const results: SakinanSearchResult[] = [];
 
   // 1. البحث في المختبر القرآني للأمثلة والشواهد (QURAN_EXAMPLES)
   if (category === 'all' || category === 'shawahid_examples') {
     for (const ex of QURAN_EXAMPLES) {
-      const matchAyah = textMatches(ex.ayahText, normQuery);
-      const matchPhrase = textMatches(ex.targetPhrase, normQuery);
-      const matchReason = textMatches(ex.reason, normQuery);
-      const matchMethod = textMatches(ex.method, normQuery);
-      const matchDisposal = textMatches(ex.disposalDetails, normQuery);
-      const matchScholarly = textMatches(ex.scholarlyNote || '', normQuery);
-      const matchSurah = textMatches(ex.surahName, normQuery);
-      const matchPronunciation = textMatches(ex.pronunciationGuide || '', normQuery);
+      const matchAyah = textMatches(ex.ayahText, normQuery, queryTokens);
+      const matchPhrase = textMatches(ex.targetPhrase, normQuery, queryTokens);
+      const matchReason = textMatches(ex.reason, normQuery, queryTokens);
+      const matchMethod = textMatches(ex.method, normQuery, queryTokens);
+      const matchDisposal = textMatches(ex.disposalDetails, normQuery, queryTokens);
+      const matchScholarly = textMatches(ex.scholarlyNote || '', normQuery, queryTokens);
+      const matchSurah = textMatches(ex.surahName, normQuery, queryTokens);
+      const matchPronunciation = textMatches(ex.pronunciationGuide || '', normQuery, queryTokens);
 
       if (matchAyah || matchPhrase || matchReason || matchMethod || matchDisposal || matchScholarly || matchSurah || matchPronunciation) {
         const snippetSource = matchPhrase 
@@ -142,15 +145,15 @@ export function searchSakinanCourse(
   if (category === 'all' || category === 'lessons') {
     CURRICULUM_UNITS.forEach((unit, uIdx) => {
       // بحث في عنوان الباب ووصفه
-      const matchUnitTitle = textMatches(unit.title, normQuery);
-      const matchUnitDesc = textMatches(unit.description, normQuery);
+      const matchUnitTitle = textMatches(unit.title, normQuery, queryTokens);
+      const matchUnitDesc = textMatches(unit.description, normQuery, queryTokens);
 
       unit.lessons.forEach((lesson) => {
-        const matchLessonTitle = textMatches(lesson.title, normQuery);
-        const matchLessonSubtitle = textMatches(lesson.subtitle, normQuery);
-        const matchContent = textMatches(lesson.contentMarkdown, normQuery);
-        const matchObjectives = lesson.objectives?.some(obj => textMatches(obj, normQuery));
-        const matchHomework = textMatches(lesson.homeworkTask || '', normQuery);
+        const matchLessonTitle = textMatches(lesson.title, normQuery, queryTokens);
+        const matchLessonSubtitle = textMatches(lesson.subtitle, normQuery, queryTokens);
+        const matchContent = textMatches(lesson.contentMarkdown, normQuery, queryTokens);
+        const matchObjectives = lesson.objectives?.some(obj => textMatches(obj, normQuery, queryTokens));
+        const matchHomework = textMatches(lesson.homeworkTask || '', normQuery, queryTokens);
 
         if (matchLessonTitle || matchLessonSubtitle || matchContent || matchObjectives || matchHomework || matchUnitTitle || matchUnitDesc) {
           const snippetSource = matchContent
@@ -182,13 +185,13 @@ export function searchSakinanCourse(
   // 3. البحث في الكلمات المستثناة (EXCEPTION_WORDS_DATA)
   if (category === 'all' || category === 'exceptions') {
     for (const exc of EXCEPTION_WORDS_DATA) {
-      const matchWord = textMatches(exc.word, normQuery);
-      const matchSurah = textMatches(exc.surah, normQuery);
-      const matchOrigin = textMatches(exc.originText, normQuery);
-      const matchCause = textMatches(exc.sukoonCause, normQuery);
-      const matchMethod = textMatches(exc.disposalMethod, normQuery);
-      const matchDirection = textMatches(exc.scholarlyDirection || '', normQuery);
-      const matchOptions = exc.readingOptions?.some(opt => textMatches(opt, normQuery));
+      const matchWord = textMatches(exc.word, normQuery, queryTokens);
+      const matchSurah = textMatches(exc.surah, normQuery, queryTokens);
+      const matchOrigin = textMatches(exc.originText, normQuery, queryTokens);
+      const matchCause = textMatches(exc.sukoonCause, normQuery, queryTokens);
+      const matchMethod = textMatches(exc.disposalMethod, normQuery, queryTokens);
+      const matchDirection = textMatches(exc.scholarlyDirection || '', normQuery, queryTokens);
+      const matchOptions = exc.readingOptions?.some(opt => textMatches(opt, normQuery, queryTokens));
 
       if (matchWord || matchSurah || matchOrigin || matchCause || matchMethod || matchDirection || matchOptions) {
         results.push({
@@ -211,12 +214,12 @@ export function searchSakinanCourse(
   // 4. البحث في جدول المقارنة الشامل والقواعد الكلية (SUMMARY_TABLE_DATA & THEORY)
   if (category === 'all' || category === 'summary_rules') {
     for (const sum of SUMMARY_TABLE_DATA) {
-      const matchType = textMatches(sum.type, normQuery);
-      const matchCond = textMatches(sum.condition, normQuery);
-      const matchMethod = textMatches(sum.disposalMethod, normQuery);
-      const matchEx = textMatches(sum.exampleText, normQuery);
-      const matchRule = textMatches(sum.tajweedRule, normQuery);
-      const matchNote = textMatches(sum.scholarlyNote || '', normQuery);
+      const matchType = textMatches(sum.type, normQuery, queryTokens);
+      const matchCond = textMatches(sum.condition, normQuery, queryTokens);
+      const matchMethod = textMatches(sum.disposalMethod, normQuery, queryTokens);
+      const matchEx = textMatches(sum.exampleText, normQuery, queryTokens);
+      const matchRule = textMatches(sum.tajweedRule, normQuery, queryTokens);
+      const matchNote = textMatches(sum.scholarlyNote || '', normQuery, queryTokens);
 
       if (matchType || matchCond || matchMethod || matchEx || matchRule || matchNote) {
         results.push({
@@ -237,9 +240,9 @@ export function searchSakinanCourse(
 
     // فصول التأصيل العلمي
     for (const chap of THEORY_CHAPTERS) {
-      const matchTitle = textMatches(chap.title, normQuery);
-      const matchSub = textMatches(chap.subtitle, normQuery);
-      const matchContent = textMatches(chap.content, normQuery);
+      const matchTitle = textMatches(chap.title, normQuery, queryTokens);
+      const matchSub = textMatches(chap.subtitle, normQuery, queryTokens);
+      const matchContent = textMatches(chap.content, normQuery, queryTokens);
 
       if (matchTitle || matchSub || matchContent) {
         results.push({
