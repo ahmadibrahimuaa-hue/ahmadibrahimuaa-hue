@@ -21,7 +21,7 @@ import { BadgeEarnedToast } from './components/BadgeEarnedToast';
 import { QuranFontModal } from './components/QuranFontModal';
 import { getStudentProgress, subscribeStudentProgress, calculateProgressPercentage, markSectionRead, isCourseUnlocked, isCoursePassed } from './utils/studentProgressStorage';
 import { getStudentProfile, subscribeStudentProfile } from './utils/studentStorage';
-import { getCurrentAuthTrainer, setCurrentAuthTrainer, SUPER_ADMIN_ACCOUNT } from './utils/trainerStorage';
+import { getCurrentAuthTrainer, setCurrentAuthTrainer, SUPER_ADMIN_ACCOUNT, subscribeTrainers, getAllTrainersAsync, clearStaleAuthSessions } from './utils/trainerStorage';
 import { getAllCourses, SAKINAN_COURSE, getCourseById } from './data/courses';
 import { subscribeCourses } from './utils/courseCustomStorage';
 import { Course, StudentProfile, TrainerAccount } from './types';
@@ -135,6 +135,20 @@ export default function App() {
     }
     return false;
   });
+
+  // Real-time synchronization of trainers across all browsers and devices
+  useEffect(() => {
+    getAllTrainersAsync().catch((err) => console.error('Error fetching trainers on startup:', err));
+    const unsubscribe = subscribeTrainers(() => {
+      clearStaleAuthSessions();
+      const curr = getCurrentAuthTrainer();
+      if (curr) {
+        setAuthTrainer(curr);
+        setAuthRole(curr.role || 'trainer');
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('tajweed_teacher_mode', isTeacherMode ? 'true' : 'false');
@@ -431,7 +445,7 @@ export default function App() {
         <TeacherAuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
-          onSuccess={(role, trainer) => {
+          onSuccess={(trainer, role) => {
             setIsTeacherMode(true);
             setAuthRole(role);
             setAuthTrainer(trainer);

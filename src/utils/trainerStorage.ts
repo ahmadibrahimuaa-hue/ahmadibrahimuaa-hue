@@ -61,28 +61,22 @@ export const subscribeTrainers = (callback: (trainers: TrainerAccount[]) => void
             list.push({ ...data, id: d.id });
           });
           
-          // Check local super_admin to preserve updated password if not yet in snapshot or vice versa
-          const local = getLocalTrainers();
-          const localAdmin = local.find((t) => t.role === 'super_admin' || t.id === 'super_admin');
-          const remoteAdminIdx = list.findIndex((t) => t.role === 'super_admin' || t.id === 'super_admin');
-
-          if (remoteAdminIdx === -1) {
-            if (localAdmin) {
-              list.unshift(localAdmin);
-            }
-          } else if (localAdmin && localAdmin.updatedAt && (!list[remoteAdminIdx].updatedAt || localAdmin.updatedAt > (list[remoteAdminIdx].updatedAt || 0))) {
-            list[remoteAdminIdx] = localAdmin;
-          }
-
           cachedTrainers = list;
           isLoaded = true;
           saveLocalTrainers(list);
           notifyTrainerListeners(list);
         } else {
-          // Initialize with current local
+          // If Firestore is empty, seed it with default accounts
           const list = getLocalTrainers();
           cachedTrainers = list;
           notifyTrainerListeners(list);
+          list.forEach(async (t) => {
+            try {
+              await setDoc(doc(db, 'trainers', t.id), t);
+            } catch (e) {
+              console.error('Error seeding initial trainer to Firestore:', e);
+            }
+          });
         }
       },
       (err) => {
@@ -161,23 +155,29 @@ export const getAllTrainersAsync = async (): Promise<TrainerAccount[]> => {
         list.push({ ...data, id: d.id });
       });
       
-      // Preserve local super admin updated password if newer or absent in remote
+      // If there are any locally added custom trainers not yet synced to Firestore, keep them
       const local = getLocalTrainers();
-      const localAdmin = local.find((t) => t.role === 'super_admin' || t.id === 'super_admin');
-      const remoteAdminIdx = list.findIndex((t) => t.role === 'super_admin' || t.id === 'super_admin');
-
-      if (remoteAdminIdx === -1) {
-        if (localAdmin) {
-          list.unshift(localAdmin);
+      local.forEach((locT) => {
+        if (locT.id !== 'super_admin' && !list.some((r) => r.id === locT.id || r.username.toLowerCase() === locT.username.toLowerCase())) {
+          list.push(locT);
         }
-      } else if (localAdmin && localAdmin.updatedAt && (!list[remoteAdminIdx].updatedAt || localAdmin.updatedAt > (list[remoteAdminIdx].updatedAt || 0))) {
-        list[remoteAdminIdx] = localAdmin;
-      }
+      });
 
       cachedTrainers = list;
       isLoaded = true;
       saveLocalTrainers(list);
       notifyTrainerListeners(list);
+      return list;
+    } else {
+      // Seed Firestore with local trainers if Firestore collection is empty
+      const list = getLocalTrainers();
+      for (const t of list) {
+        try {
+          await setDoc(doc(db, 'trainers', t.id), t);
+        } catch (err) {
+          console.error('Error seeding trainer to Firestore:', err);
+        }
+      }
       return list;
     }
   } catch (e) {
@@ -373,10 +373,9 @@ export interface AuthResult {
 }
 
 /**
- * دالة التحقق من تسجيل الدخول (Login Verification):
- * تفحص التطابق التام فقط مع كلمة المرور الجديدة المسجلة حالياً، دون أي شروط || أو قيم افتراضية/قديمة.
+ * دالة التحقق المتزامنة من تسجيل الدخول (Synchronous Fallback)
  */
-export const authenticateTrainerOrAdmin = (
+export const authenticateTrainerOrAdminSync = (
   usernameOrCode: string,
   password?: string
 ): AuthResult => {
@@ -467,6 +466,24 @@ export const authenticateTrainerOrAdmin = (
     role: matched.role || 'trainer',
     trainer: matched,
   };
+};
+
+/**
+ * دالة التحقق من تسجيل الدخول (Login Verification - Async with Firestore sync):
+ * تجلب أحدث بيانات الحسابات وكلمات المرور من سحاب Firestore مباشرة لضمان فتح الحساب في أي متصفح أو جهاز.
+ */
+export const authenticateTrainerOrAdmin = async (
+  usernameOrCode: string,
+  password?: string
+): Promise<AuthResult> => {
+  try {
+    // جلب أحدث بيانات الحسابات من Firestore سحابياً لجميع المتصفحات
+    await getAllTrainersAsync();
+  } catch (err) {
+    console.warn('Network sync during auth failed, using local cache:', err);
+  }
+
+  return authenticateTrainerOrAdminSync(usernameOrCode, password);
 };
 
 export const getActiveTrainersList = (): TrainerAccount[] => {

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Lock, Key, ShieldCheck, UserCheck, CheckCircle2, AlertCircle, X, 
   Sparkles, Shield, User, Eye, EyeOff, ArrowRight
 } from 'lucide-react';
-import { authenticateTrainerOrAdmin, setCurrentAuthTrainer } from '../utils/trainerStorage';
+import { authenticateTrainerOrAdmin, setCurrentAuthTrainer, getAllTrainersAsync } from '../utils/trainerStorage';
 import { TrainerAccount } from '../types';
 import { WhatsAppSupport } from './WhatsAppSupport';
 
@@ -26,9 +26,16 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Pre-fetch live credentials from Firestore when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      getAllTrainersAsync().catch((err) => console.warn('Pre-fetch trainers in modal failed:', err));
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const handleTrainerLogin = (e: React.FormEvent) => {
+  const handleTrainerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     const cleanUser = username.trim();
@@ -41,7 +48,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const res = authenticateTrainerOrAdmin(cleanUser, cleanPass);
+      const res = await authenticateTrainerOrAdmin(cleanUser, cleanPass);
       if (res.success && res.trainer) {
         setCurrentAuthTrainer(res.trainer);
         onSuccess(res.trainer, res.role || 'trainer');
@@ -56,7 +63,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
     }
   };
 
-  const handleQuickAdminLogin = (e: React.FormEvent) => {
+  const handleQuickAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     const cleanPass = quickPasscode.trim();
@@ -68,7 +75,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const res = authenticateTrainerOrAdmin('admin', cleanPass);
+      const res = await authenticateTrainerOrAdmin('admin', cleanPass);
       if (res.success && res.trainer) {
         setCurrentAuthTrainer(res.trainer);
         onSuccess(res.trainer, res.role || 'super_admin');

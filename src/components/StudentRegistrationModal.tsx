@@ -152,7 +152,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
   };
 
   // Trainer Form Submission
-  const handleTrainerSubmit = (e: React.FormEvent) => {
+  const handleTrainerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTrainerError('');
     setIsSubmittingTrainer(true);
@@ -165,7 +165,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
           setIsSubmittingTrainer(false);
           return;
         }
-        const res = authenticateTrainerOrAdmin('admin', cleanAdminPass);
+        const res = await authenticateTrainerOrAdmin('admin', cleanAdminPass);
         if (res.success && res.trainer) {
           setCurrentAuthTrainer(res.trainer);
           if (onTeacherAuthSuccess) {
@@ -184,7 +184,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
           setIsSubmittingTrainer(false);
           return;
         }
-        const res = authenticateTrainerOrAdmin(cleanUser, cleanPass);
+        const res = await authenticateTrainerOrAdmin(cleanUser, cleanPass);
         if (res.success && res.trainer) {
           setCurrentAuthTrainer(res.trainer);
           if (onTeacherAuthSuccess) {
