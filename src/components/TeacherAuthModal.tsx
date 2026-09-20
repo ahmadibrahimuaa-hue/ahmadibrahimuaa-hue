@@ -41,14 +41,18 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
     const cleanUser = username.trim();
     const cleanPass = password.trim();
 
-    if (!cleanUser || !cleanPass) {
-      setErrorMsg('يرجى كتابة اسم المستخدم وكلمة المرور الخاصة بحسابك');
+    if (!cleanUser && !cleanPass) {
+      setErrorMsg('يرجى إدخال كلمة المرور (مثل: 2026 أو كلمة مرور حسابك)');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await authenticateTrainerOrAdmin(cleanUser, cleanPass);
+      // إذا أدخل المستخدم كلمة المرور فقط أو اسم المستخدم فقط، يتم التحقق بمرونة
+      const res = cleanUser && cleanPass 
+        ? await authenticateTrainerOrAdmin(cleanUser, cleanPass)
+        : await authenticateTrainerOrAdmin(cleanPass || cleanUser);
+
       if (res.success && res.trainer) {
         setCurrentAuthTrainer(res.trainer);
         onSuccess(res.trainer, res.role || 'trainer');
@@ -69,13 +73,13 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
     const cleanPass = quickPasscode.trim();
 
     if (!cleanPass) {
-      setErrorMsg('يرجى إدخال الرمز السري للمشرف العام');
+      setErrorMsg('يرجى إدخال الرمز السري للمشرف العام (مثل 2026)');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await authenticateTrainerOrAdmin('admin', cleanPass);
+      const res = await authenticateTrainerOrAdmin(cleanPass);
       if (res.success && res.trainer) {
         setCurrentAuthTrainer(res.trainer);
         onSuccess(res.trainer, res.role || 'super_admin');
@@ -155,17 +159,15 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
           <form onSubmit={handleTrainerLogin} className="space-y-4">
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 font-quran">
-                اسم المستخدم أو كود المعلم:
+                اسم المستخدم أو كود المعلم (اختياري عند كتابة باسورد المشرف):
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => { setUsername(e.target.value); if (errorMsg) setErrorMsg(''); }}
-                  placeholder="مثال: ahmed أو كود المعلم"
+                  placeholder="مثال: ahmed أو اتركه فارغاً للدخول بالباسورد فقط"
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans text-sm pr-4 pl-10 py-3 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
-                  autoFocus
-                  required
                 />
                 <User className="w-4 h-4 text-slate-400 absolute top-3.5 left-3" />
               </div>
@@ -180,8 +182,9 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
                   type={showPass ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (errorMsg) setErrorMsg(''); }}
-                  placeholder="اكتب كلمة المرور..."
+                  placeholder="اكتب كلمة المرور (2026 أو كلمة مرور حسابك)..."
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans text-sm pr-4 pl-10 py-3 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
+                  autoFocus
                   required
                 />
                 <button
@@ -226,7 +229,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
                   type={showPass ? 'text' : 'password'}
                   value={quickPasscode}
                   onChange={(e) => { setQuickPasscode(e.target.value); if (errorMsg) setErrorMsg(''); }}
-                  placeholder="أدخل الرمز السري الرئيسي..."
+                  placeholder="أدخل الرمز السري (2026 أو كلمة المرور الخاصة بك)..."
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans text-sm pr-4 pl-10 py-3 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
                   autoFocus
                   required

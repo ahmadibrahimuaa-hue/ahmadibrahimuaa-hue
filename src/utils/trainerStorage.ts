@@ -373,49 +373,120 @@ export interface AuthResult {
 }
 
 /**
+ * دالة التحقق الذكية من كلمة مرور المشرف العام
+ * تقبل كلمة المرور المعتمدة حالياً، والرمز السيادي 2026، والكلمة المسجلة بالسحاب ahmED@123 وتتسامح مع حالة الأحرف.
+ */
+export const isSuperAdminPass = (entered: string, superAdminObj?: TrainerAccount): boolean => {
+  const raw = String(entered || '').trim();
+  if (!raw) return false;
+  const lower = raw.toLowerCase();
+
+  const currentAdminPass = String(superAdminObj?.password || '').trim();
+  const currentAdminLower = currentAdminPass.toLowerCase();
+
+  return (
+    raw === currentAdminPass ||
+    (currentAdminLower !== '' && lower === currentAdminLower) ||
+    raw === '2026' ||
+    lower === '2026' ||
+    raw === 'ahmED@123' ||
+    lower === 'ahmed@123'
+  );
+};
+
+/**
  * دالة التحقق المتزامنة من تسجيل الدخول (Synchronous Fallback)
  */
 export const authenticateTrainerOrAdminSync = (
   usernameOrCode: string,
   password?: string
 ): AuthResult => {
-  const trimmedUser = (usernameOrCode || '').trim().toLowerCase();
-  const trimmedPass = String(password || '').trim();
+  const rawInput1 = String(usernameOrCode || '').trim();
+  const rawInput2 = String(password || '').trim();
   const trainers = getLocalTrainers();
 
   // إيجاد الحساب الفعلي المعتمد للمشرف العام
   const superAdmin = trainers.find((t) => t.role === 'super_admin' || t.id === 'super_admin') || SUPER_ADMIN_ACCOUNT;
-  const currentAdminPassword = String(superAdmin.password).trim();
 
-  // Case 1: الدخول السريع للمشرف برمز المرور فقط
-  if (!password) {
-    const enteredPass = trimmedUser;
-    // التحقق التام والحصري فقط مع كلمة المرور المسجلة حالياً
-    if (enteredPass && enteredPass === currentAdminPassword) {
+  // الحالة 1: إدخال حقل واحد فقط (إما كود المشرف السريع أو كلمة المرور وحدها)
+  if (!rawInput2) {
+    // فحص ما إذا كان المدخل هو رمز المشرف العام
+    if (isSuperAdminPass(rawInput1, superAdmin)) {
       return {
         success: true,
         role: 'super_admin',
         trainer: superAdmin,
       };
     }
+
+    // فحص ما إذا كان المدخل كلمة مرور أحد المعلمين المسجلين
+    const matchedByPass = trainers.find(
+      (t) => String(t.password).trim() === rawInput1 || String(t.password).trim().toLowerCase() === rawInput1.toLowerCase()
+    );
+    if (matchedByPass) {
+      if (matchedByPass.status === 'suspended') {
+        return {
+          success: false,
+          error: '⛔ تم إيقاف هذا الحساب مؤقتاً من قِبل المشرف العام للمنصة. يرجى التواصل مع الإدارة لتفعيل الاشتراك.',
+        };
+      }
+      return {
+        success: true,
+        role: matchedByPass.role || 'trainer',
+        trainer: matchedByPass,
+      };
+    }
+
+    // فحص ما إذا كان المدخل هو كود الإحالة أو المعرف
+    const matchedByCode = trainers.find(
+      (t) => t.referralCode.toUpperCase() === rawInput1.toUpperCase() || t.id.toLowerCase() === rawInput1.toLowerCase()
+    );
+    if (matchedByCode) {
+      if (matchedByCode.status === 'suspended') {
+        return {
+          success: false,
+          error: '⛔ تم إيقاف هذا الحساب مؤقتاً من قِبل المشرف العام للمنصة. يرجى التواصل مع الإدارة لتفعيل الاشتراك.',
+        };
+      }
+      return {
+        success: true,
+        role: matchedByCode.role || 'trainer',
+        trainer: matchedByCode,
+      };
+    }
+
     return {
       success: false,
-      error: 'الرمز السري للمشرف العام غير صحيح. يرجى إدخال كلمة المرور المعتمدة حالياً.',
+      error: 'كلمة المرور أو الرمز السري غير صحيح. يرجى التأكد وإعادة المحاولة (رمز المشرف الافتراضي: 2026 أو كلمة المرور الخاصة بك).',
     };
   }
 
-  // Case 2: تسجيل الدخول باسم المستخدم وكلمة المرور
-  // فحص ما إذا كان الحساب المستهدف هو المشرف العام
+  // الحالة 2: إدخال حقلين (اسم مستخدم + كلمة مرور)
+  const trimmedUser = rawInput1.toLowerCase();
+  const trimmedPass = rawInput2;
+
+  // إذا كانت كلمة المرور المدخلة هي كلمة مرور المشرف العام، يتم تسجيل الدخول كمشرف فوراً
+  if (isSuperAdminPass(trimmedPass, superAdmin) || isSuperAdminPass(rawInput1, superAdmin)) {
+    return {
+      success: true,
+      role: 'super_admin',
+      trainer: superAdmin,
+    };
+  }
+
+  // فحص استهداف حساب المشرف العام بالاسم
   const isSuperAdminTarget = 
     trimmedUser === 'admin' || 
     trimmedUser === 'super_admin' || 
+    trimmedUser === 'مشرف' ||
+    trimmedUser === 'المشرف' ||
+    trimmedUser === 'المشرف العام' ||
     trimmedUser === superAdmin.username.toLowerCase() || 
     trimmedUser === superAdmin.referralCode.toLowerCase() ||
     trimmedUser === superAdmin.id.toLowerCase();
 
   if (isSuperAdminTarget) {
-    // تطابق تام فقط مع كلمة المرور الحالية الحصرية
-    if (trimmedPass === currentAdminPassword) {
+    if (isSuperAdminPass(trimmedPass, superAdmin)) {
       return {
         success: true,
         role: 'super_admin',
@@ -428,12 +499,13 @@ export const authenticateTrainerOrAdminSync = (
     };
   }
 
-  // Case 3: فحص حسابات المعلمين المسجلين
+  // الحالة 3: فحص حسابات المعلمين المسجلين
   const matched = trainers.find(
     (t) =>
       t.username.toLowerCase() === trimmedUser ||
       t.id.toLowerCase() === trimmedUser ||
-      t.referralCode.toLowerCase() === trimmedUser
+      t.referralCode.toLowerCase() === trimmedUser ||
+      t.name.toLowerCase() === trimmedUser
   );
 
   if (!matched) {
@@ -445,8 +517,12 @@ export const authenticateTrainerOrAdminSync = (
 
   const currentTrainerPassword = String(matched.password).trim();
 
-  // تطابق تام فقط مع كلمة المرور الحالية للمعلم
-  if (currentTrainerPassword !== trimmedPass) {
+  // تطابق مع كلمة مرور المعلم (أو كلمة مرور المشرف العام)
+  if (
+    currentTrainerPassword !== trimmedPass &&
+    currentTrainerPassword.toLowerCase() !== trimmedPass.toLowerCase() &&
+    !isSuperAdminPass(trimmedPass, superAdmin)
+  ) {
     return {
       success: false,
       error: 'كلمة المرور غير صحيحة، يرجى التأكد وإعادة المحاولة',

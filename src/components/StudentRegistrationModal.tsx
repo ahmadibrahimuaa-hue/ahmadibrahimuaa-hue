@@ -161,11 +161,11 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
       if (trainerLoginMode === 'admin_master') {
         const cleanAdminPass = adminMasterCode.trim();
         if (!cleanAdminPass) {
-          setTrainerError('يرجى إدخال الرمز السري للمشرف العام');
+          setTrainerError('يرجى إدخال الرمز السري للمشرف العام (مثل 2026 أو كلمة مرورك)');
           setIsSubmittingTrainer(false);
           return;
         }
-        const res = await authenticateTrainerOrAdmin('admin', cleanAdminPass);
+        const res = await authenticateTrainerOrAdmin(cleanAdminPass);
         if (res.success && res.trainer) {
           setCurrentAuthTrainer(res.trainer);
           if (onTeacherAuthSuccess) {
@@ -179,12 +179,15 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
       } else {
         const cleanUser = trainerUsername.trim();
         const cleanPass = trainerPassword.trim();
-        if (!cleanUser || !cleanPass) {
-          setTrainerError('يرجى إدخال اسم المستخدم أو كود المعلم وكلمة المرور');
+        if (!cleanUser && !cleanPass) {
+          setTrainerError('يرجى إدخال كلمة المرور (مثل: 2026 أو كلمة مرور حسابك)');
           setIsSubmittingTrainer(false);
           return;
         }
-        const res = await authenticateTrainerOrAdmin(cleanUser, cleanPass);
+        const res = cleanUser && cleanPass
+          ? await authenticateTrainerOrAdmin(cleanUser, cleanPass)
+          : await authenticateTrainerOrAdmin(cleanPass || cleanUser);
+
         if (res.success && res.trainer) {
           setCurrentAuthTrainer(res.trainer);
           if (onTeacherAuthSuccess) {
@@ -477,7 +480,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 font-quran">
-                    اسم المستخدم أو كود المعلم:
+                    اسم المستخدم أو كود المعلم (اختياري عند إدخال باسورد المشرف):
                   </label>
                   <input
                     type="text"
@@ -486,16 +489,14 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                       setTrainerUsername(e.target.value);
                       if (trainerError) setTrainerError('');
                     }}
-                    placeholder="مثال: ahmed أو AHMED-QURAN"
+                    placeholder="مثال: ahmed أو اتركه فارغاً للدخول بالباسورد فقط"
                     className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right font-sans"
-                    autoFocus
-                    required
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 font-quran">
-                    كلمة المرور الخاصة بحساب المعلم:
+                    كلمة المرور الخاصة بالحساب (الباسورد):
                   </label>
                   <div className="relative">
                     <input
@@ -505,8 +506,9 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                         setTrainerPassword(e.target.value);
                         if (trainerError) setTrainerError('');
                       }}
-                      placeholder="كلمة المرور الممنوحة لك..."
+                      placeholder="كلمة المرور (2026 أو كلمة مرور حسابك)..."
                       className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right font-sans pl-10"
+                      autoFocus
                       required
                     />
                     <button
@@ -533,7 +535,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                         setAdminMasterCode(e.target.value);
                         if (trainerError) setTrainerError('');
                       }}
-                      placeholder="أدخل كلمة المرور الحالية للمشرف العام..."
+                      placeholder="أدخل الرمز السري (2026 أو كلمة مرورك)..."
                       className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm px-4 py-3 rounded-xl border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 text-right font-sans pl-10"
                       autoFocus
                       required
