@@ -26,8 +26,12 @@ import {
   subscribeCertificateConfig, 
   DEFAULT_CERTIFICATE_CONFIG, 
   CertificateConfig,
+  CourseCertSettings,
+  getCourseCertSettings,
+  updateCourseCertSettingsInConfig,
   compressImageDataUrl
 } from '../utils/certificateConfigStorage';
+import { getAllCourses, getCourseById } from '../data/courses';
 import { CertificateTemplateView } from './CertificateTemplateView';
 import { AdminTrainersPanel } from './AdminTrainersPanel';
 import { BagManagementPanel } from './BagManagementPanel';
@@ -102,9 +106,7 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
   const [certSavedSuccess, setCertSavedSuccess] = useState<boolean>(false);
   const [certSavedError, setCertSavedError] = useState<string>('');
   const [savingCert, setSavingCert] = useState<boolean>(false);
-  const [certCourseTab, setCertCourseTab] = useState<'sakinan' | 'idgham'>(
-    activeCourseId === 'idgham' ? 'idgham' : 'sakinan'
-  );
+  const [certCourseTab, setCertCourseTab] = useState<string>(activeCourseId || 'sakinan');
   const [certPreviewPercentage, setCertPreviewPercentage] = useState<number>(95);
 
   useEffect(() => {
@@ -124,11 +126,11 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
   useEffect(() => {
     if (activeCourseId) {
       setSelectedCourseId(activeCourseId);
-      setCertCourseTab(activeCourseId === 'idgham' ? 'idgham' : 'sakinan');
+      setCertCourseTab(activeCourseId);
     }
   }, [activeCourseId, isOpen]);
 
-  const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>, targetCourse: 'sakinan' | 'idgham') => {
+  const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>, targetCourseId: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -140,11 +142,7 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
       try {
         const dataUrl = reader.result as string;
         const compressed = await compressImageDataUrl(dataUrl, 1600, 0.85);
-        if (targetCourse === 'idgham') {
-          setCertConfig((prev) => ({ ...prev, idghamBgTemplateUrl: compressed }));
-        } else {
-          setCertConfig((prev) => ({ ...prev, bgTemplateUrl: compressed }));
-        }
+        setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, targetCourseId, { bgTemplateUrl: compressed }));
       } catch (err) {
         console.error('Image compression error:', err);
       }
@@ -156,14 +154,7 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
     setSavingCert(true);
     setCertSavedError('');
     try {
-      let configToSave = { ...certConfig };
-      if (configToSave.bgTemplateUrl && configToSave.bgTemplateUrl.startsWith('data:image')) {
-        configToSave.bgTemplateUrl = await compressImageDataUrl(configToSave.bgTemplateUrl);
-      }
-      if (configToSave.idghamBgTemplateUrl && configToSave.idghamBgTemplateUrl.startsWith('data:image')) {
-        configToSave.idghamBgTemplateUrl = await compressImageDataUrl(configToSave.idghamBgTemplateUrl);
-      }
-      const res = await saveCertificateConfig(configToSave);
+      const res = await saveCertificateConfig(certConfig);
       setCertConfig(res);
       setCertSavedSuccess(true);
       setTimeout(() => setCertSavedSuccess(false), 4000);
@@ -175,8 +166,24 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
     }
   };
 
+  const handleResetCourseCertConfig = (targetCourseId: string) => {
+    if (window.confirm('هل أنت متأكد من رغبتك في إعادة ضبط إعدادات ومواضع قالَب شهادة هذه الحقيبة إلى القيم الافتراضية؟')) {
+      setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, targetCourseId, {
+        bgTemplateUrl: '/certificate_template.jpg',
+        studentNameTopPct: 33.8,
+        studentNameRightPct: 26,
+        studentNameScalePct: 100,
+        studentNameColor: '#0f172a',
+        scoreTopPct: 56.8,
+        scoreRightPct: 38.0,
+        scoreScalePct: 100,
+        scoreColor: '#0f172a',
+      }));
+    }
+  };
+
   const handleResetCertConfig = async () => {
-    if (window.confirm('هل أنت متأكد من إعادة ضبط مواضع الاسم والنسبة المئوية إلى القيم الافتراضية؟')) {
+    if (window.confirm('هل أنت متأكد من إعادة ضبط كافة إعدادات الشهادات لجميع الحقائب إلى القيم الافتراضية؟')) {
       setSavingCert(true);
       setCertSavedError('');
       try {
@@ -1227,465 +1234,375 @@ export const TeacherDashboardModal: React.FC<TeacherDashboardModalProps> = ({
           )}
 
           {/* TAB 4: CERTIFICATE CUSTOMIZATION */}
-          {activeTab === 'certificate' && (
-            <div className="space-y-6">
-              {/* Course Selection Bar for Certificate */}
-              <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-4 rounded-2xl border border-slate-800 flex items-center justify-between flex-wrap gap-3 shadow-md">
-                <div className="flex items-center gap-2 font-quran text-amber-300 text-sm font-bold">
-                  <Palette className="w-5 h-5 text-amber-400" />
-                  <span>تخصيص وتعديل قالَب شهادة الاجتياز للحقيبة:</span>
-                </div>
-                <div className="flex items-center bg-slate-900 p-1.5 rounded-xl border border-slate-700">
-                  <button
-                    onClick={() => setCertCourseTab('sakinan')}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold font-quran transition-all cursor-pointer flex items-center gap-1.5 ${
-                      certCourseTab === 'sakinan'
-                        ? 'bg-emerald-700 text-white shadow-md'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <span>1. شهادة التقاء الساكنين</span>
-                  </button>
-                  <button
-                    onClick={() => setCertCourseTab('idgham')}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-bold font-quran transition-all cursor-pointer flex items-center gap-1.5 ${
-                      certCourseTab === 'idgham'
-                        ? 'bg-indigo-700 text-white shadow-md'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <span>2. شهادة أحكام الإدغام</span>
-                  </button>
-                </div>
-              </div>
+          {activeTab === 'certificate' && (() => {
+            const allCourses = getAllCourses();
+            const currentCourseCert = getCourseCertSettings(certConfig, certCourseTab);
+            const selectedCertCourse = allCourses.find((c) => c.id === certCourseTab) || allCourses[0];
+            const hasCustomBg = Boolean(currentCourseCert.bgTemplateUrl && currentCourseCert.bgTemplateUrl !== '/certificate_template.jpg');
 
-              {/* Certificate Template Editor Studio */}
-              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-wrap gap-3">
-                  <div>
-                    <h3 className="font-bold font-quran text-lg text-slate-900 flex items-center gap-2">
-                      <span>استوديو ضبط وتصميم الشهادة</span>
-                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-sans font-bold ${
-                        certCourseTab === 'idgham'
-                          ? 'bg-indigo-100 text-indigo-900 border border-indigo-200'
-                          : 'bg-emerald-100 text-emerald-900 border border-emerald-200'
-                      }`}>
-                        {certCourseTab === 'idgham' ? 'الحقيبة الثانية: أحكام الإدغام' : 'الحقيبة الأولى: التقاء الساكنين'}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-500 font-tajawal mt-1">
-                      يمكنك تعديل صورة الخلفية للشهادة، وضبط مواضع وحجم ولون اسم الطالب والنسبة المئوية بدقة عالية مع المعاينة الفورية.
-                    </p>
+            return (
+              <div className="space-y-6">
+                {/* Course Selection Bar for Certificate */}
+                <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 p-4 rounded-2xl border border-slate-800 flex items-center justify-between flex-wrap gap-3 shadow-md">
+                  <div className="flex items-center gap-2 font-quran text-amber-300 text-sm font-bold">
+                    <Palette className="w-5 h-5 text-amber-400" />
+                    <span>تخصيص وتعديل قالَب شهادة الاجتياز للحقيبة:</span>
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleResetCertConfig}
-                      disabled={savingCert}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="استعادة المواضع الافتراضية للشهادة"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      <span>إعادة الضبط الافتراضي</span>
-                    </button>
-                    <button
-                      onClick={handleSaveCertConfig}
-                      disabled={savingCert}
-                      className="bg-emerald-800 hover:bg-emerald-900 text-amber-300 text-xs font-bold px-6 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-50 font-quran"
-                    >
-                      {savingCert ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 text-amber-400" />}
-                      <span>حفظ الإعدادات في السحاب فوراً</span>
-                    </button>
+                  <div className="flex items-center gap-2 overflow-x-auto max-w-full py-1">
+                    {allCourses.map((course, idx) => {
+                      const isSelected = certCourseTab === course.id;
+                      return (
+                        <button
+                          key={course.id}
+                          onClick={() => setCertCourseTab(course.id)}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold font-quran transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0 ${
+                            isSelected
+                              ? 'bg-emerald-700 text-white shadow-md border border-emerald-500'
+                              : 'bg-slate-800/80 text-slate-300 hover:text-white border border-slate-700'
+                          }`}
+                        >
+                          <span>{idx + 1}. {course.title}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {certSavedSuccess && (
-                  <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-xs flex items-center gap-3 animate-fadeIn">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
-                    <span className="font-bold">تم حفظ كافة إعدادات ومواضع الشهادة بنجاح في السحاب (Firestore) وستنعكس تلقائياً لدى جميع الطلاب!</span>
-                  </div>
-                )}
-
-                {certSavedError && (
-                  <div className="p-4 bg-rose-50 border border-rose-300 text-rose-900 rounded-2xl text-xs flex items-center gap-3">
-                    <AlertCircle className="w-5 h-5 text-rose-700 shrink-0" />
-                    <span>{certSavedError}</span>
-                  </div>
-                )}
-
-                {/* Section 1: Template Background Image Upload */}
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                      <ImageIcon className="w-4 h-4 text-amber-600" />
-                      <span>صورة قالَب الشهادة الرسمية (خلفية الشهادة):</span>
+                {/* Certificate Template Editor Studio */}
+                <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-wrap gap-3">
+                    <div>
+                      <h3 className="font-bold font-quran text-lg text-slate-900 flex items-center gap-2">
+                        <span>استوديو ضبط وتصميم الشهادة</span>
+                        <span className="text-xs px-3 py-1 rounded-full font-quran font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
+                          {selectedCertCourse ? selectedCertCourse.title : 'الحقيبة المحددة'}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 font-tajawal mt-1">
+                        يمكنك تعديل صورة الخلفية للشهادة، وضبط مواضع وحجم ولون اسم الطالب والنسبة المئوية بدقة عالية مع المعاينة الفورية.
+                      </p>
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <label className="bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>رفع صورة قالَب شهادة جديدة (JPG / PNG)</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleBgImageUpload(e, certCourseTab)}
-                          className="hidden"
-                        />
-                      </label>
-
-                      {((certCourseTab === 'idgham' && certConfig.idghamBgTemplateUrl) ||
-                        (certCourseTab === 'sakinan' && certConfig.bgTemplateUrl && certConfig.bgTemplateUrl !== '/certificate_template.jpg')) && (
-                        <button
-                          onClick={() => {
-                            if (certCourseTab === 'idgham') {
-                              setCertConfig((prev) => ({ ...prev, idghamBgTemplateUrl: '' }));
-                            } else {
-                              setCertConfig((prev) => ({ ...prev, bgTemplateUrl: '/certificate_template.jpg' }));
-                            }
-                          }}
-                          className="bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-rose-300 transition-all cursor-pointer"
-                        >
-                          استعادة القالب الافتراضي
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleResetCourseCertConfig(certCourseTab)}
+                        disabled={savingCert}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        title="استعادة المواضع الافتراضية للشهادة لهذه الحقيبة"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        <span>إعادة ضبط هذه الحقيبة</span>
+                      </button>
+                      <button
+                        onClick={handleSaveCertConfig}
+                        disabled={savingCert}
+                        className="bg-emerald-800 hover:bg-emerald-900 text-amber-300 text-xs font-bold px-6 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-50 font-quran"
+                      >
+                        {savingCert ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                        <span>حفظ الإعدادات في السحاب فوراً</span>
+                      </button>
                     </div>
                   </div>
-                  <p className="text-[11px] text-slate-500">
-                    ملاحظة: يمكنك رفع صورة شهادة مصممة مسبقاً بجودة عالية (A4 أفقي بدقة 297x210)، وسيقوم النظام بطباعة اسم الطالب ونسبته المئوية في المواضع المحددة أدناه.
-                  </p>
-                </div>
 
-                {/* Section 2: Detailed Sliders & Controls for Coordinates */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {/* Card 1: Student Name Controls */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4 text-xs font-tajawal">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                      <span className="font-bold font-quran text-sm text-slate-900 flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-emerald-600"></span>
-                        مواضع وتنسيق اسم الطالب/ة
-                      </span>
+                  {certSavedSuccess && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-xs flex items-center gap-3 animate-fadeIn">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
+                      <span className="font-bold">تم حفظ كافة إعدادات ومواضع الشهادة بنجاح في السحاب (Firestore) وستنعكس تلقائياً لدى جميع الطلاب!</span>
                     </div>
+                  )}
 
-                    {/* Vertical Position (Top %) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-700">الارتفاع الرأسي (Top % من الأعلى):</label>
-                        <span className="text-emerald-800 font-sans font-black bg-emerald-100 px-2 py-0.5 rounded-md">
-                          {certCourseTab === 'idgham'
-                            ? (certConfig.idghamStudentNameTopPct ?? certConfig.studentNameTopPct ?? 33.8)
-                            : (certConfig.studentNameTopPct ?? 33.8)}%
-                        </span>
+                  {certSavedError && (
+                    <div className="p-4 bg-rose-50 border border-rose-300 text-rose-900 rounded-2xl text-xs flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-rose-700 shrink-0" />
+                      <span>{certSavedError}</span>
+                    </div>
+                  )}
+
+                  {/* Section 1: Template Background Image Upload */}
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                        <ImageIcon className="w-4 h-4 text-amber-600" />
+                        <span>صورة قالَب الشهادة الرسمية لـ ({selectedCertCourse?.title}):</span>
                       </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="85"
-                        step="0.2"
-                        value={
-                          certCourseTab === 'idgham'
-                            ? (certConfig.idghamStudentNameTopPct ?? certConfig.studentNameTopPct ?? 33.8)
-                            : (certConfig.studentNameTopPct ?? 33.8)
-                        }
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setCertConfig((prev) =>
-                            certCourseTab === 'idgham'
-                              ? { ...prev, idghamStudentNameTopPct: val }
-                              : { ...prev, studentNameTopPct: val }
-                          );
-                        }}
-                        className="w-full accent-emerald-700 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Horizontal Position (Right %) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-700">الموضع الأفقي (Right % من اليمين):</label>
-                        <span className="text-emerald-800 font-sans font-black bg-emerald-100 px-2 py-0.5 rounded-md">
-                          {certCourseTab === 'idgham'
-                            ? (certConfig.idghamStudentNameRightPct ?? certConfig.studentNameRightPct ?? 26)
-                            : (certConfig.studentNameRightPct ?? 26)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="5"
-                        max="75"
-                        step="0.2"
-                        value={
-                          certCourseTab === 'idgham'
-                            ? (certConfig.idghamStudentNameRightPct ?? certConfig.studentNameRightPct ?? 26)
-                            : (certConfig.studentNameRightPct ?? 26)
-                        }
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setCertConfig((prev) =>
-                            certCourseTab === 'idgham'
-                              ? { ...prev, idghamStudentNameRightPct: val }
-                              : { ...prev, studentNameRightPct: val }
-                          );
-                        }}
-                        className="w-full accent-emerald-700 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Scale / Font Size (%) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-700">حجم وتكبير الاسم (Scale %):</label>
-                        <span className="text-emerald-800 font-sans font-black bg-emerald-100 px-2 py-0.5 rounded-md">
-                          {certCourseTab === 'idgham'
-                            ? (certConfig.idghamStudentNameScalePct ?? certConfig.studentNameScalePct ?? 100)
-                            : (certConfig.studentNameScalePct ?? 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="50"
-                        max="180"
-                        step="1"
-                        value={
-                          certCourseTab === 'idgham'
-                            ? (certConfig.idghamStudentNameScalePct ?? certConfig.studentNameScalePct ?? 100)
-                            : (certConfig.studentNameScalePct ?? 100)
-                        }
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setCertConfig((prev) =>
-                            certCourseTab === 'idgham'
-                              ? { ...prev, idghamStudentNameScalePct: val }
-                              : { ...prev, studentNameScalePct: val }
-                          );
-                        }}
-                        className="w-full accent-emerald-700 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Color of Student Name */}
-                    <div className="space-y-1.5">
-                      <label className="font-bold text-slate-700">لون خط اسم الطالب:</label>
+                      
                       <div className="flex items-center gap-2">
-                        {['#0f172a', '#064e3b', '#1e1b4b', '#78350f', '#000000'].map((clr) => (
-                          <button
-                            key={clr}
-                            type="button"
-                            onClick={() => {
-                              setCertConfig((prev) =>
-                                certCourseTab === 'idgham'
-                                  ? { ...prev, idghamStudentNameColor: clr }
-                                  : { ...prev, studentNameColor: clr }
-                              );
-                            }}
-                            className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer transition-transform hover:scale-110"
-                            style={{ backgroundColor: clr }}
+                        <label className="bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-bold px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>رفع صورة قالَب شهادة جديدة (JPG / PNG)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleBgImageUpload(e, certCourseTab)}
+                            className="hidden"
                           />
-                        ))}
+                        </label>
+
+                        {hasCustomBg && (
+                          <button
+                            onClick={() => {
+                              setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { bgTemplateUrl: '/certificate_template.jpg' }));
+                            }}
+                            className="bg-rose-100 hover:bg-rose-200 text-rose-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-rose-300 transition-all cursor-pointer"
+                          >
+                            استعادة القالب الافتراضي
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      ملاحظة: يمكنك رفع صورة شهادة مصممة مسبقاً بجودة عالية (A4 أفقي بدقة 297x210)، وسيقوم النظام بطباعة اسم الطالب ونسبته المئوية في المواضع المحددة أدناه.
+                    </p>
+                  </div>
+
+                  {/* Section 2: Detailed Sliders & Controls for Coordinates */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Card 1: Student Name Controls */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4 text-xs font-tajawal">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span className="font-bold font-quran text-sm text-slate-900 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-emerald-600"></span>
+                          مواضع وتنسيق اسم الطالب/ة
+                        </span>
+                      </div>
+
+                      {/* Vertical Position (Top %) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700">الارتفاع الرأسي (Top % من الأعلى):</label>
+                          <span className="text-emerald-800 font-sans font-black bg-emerald-100 px-2 py-0.5 rounded-md">
+                            {currentCourseCert.studentNameTopPct ?? 33.8}%
+                          </span>
+                        </div>
                         <input
-                          type="color"
-                          value={
-                            certCourseTab === 'idgham'
-                              ? (certConfig.idghamStudentNameColor || '#0f172a')
-                              : (certConfig.studentNameColor || '#0f172a')
-                          }
+                          type="range"
+                          min="10"
+                          max="85"
+                          step="0.2"
+                          value={currentCourseCert.studentNameTopPct ?? 33.8}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            setCertConfig((prev) =>
-                              certCourseTab === 'idgham'
-                                ? { ...prev, idghamStudentNameColor: val }
-                                : { ...prev, studentNameColor: val }
-                            );
+                            const val = Number(e.target.value);
+                            setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { studentNameTopPct: val }));
                           }}
-                          className="w-7 h-7 rounded-lg border border-slate-300 cursor-pointer"
+                          className="w-full accent-emerald-700 cursor-pointer"
                         />
+                      </div>
+
+                      {/* Horizontal Position (Right %) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700">الموضع الأفقي (Right % من اليمين):</label>
+                          <span className="text-emerald-800 font-sans font-black bg-emerald-100 px-2 py-0.5 rounded-md">
+                            {currentCourseCert.studentNameRightPct ?? 26}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="75"
+                          step="0.2"
+                          value={currentCourseCert.studentNameRightPct ?? 26}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { studentNameRightPct: val }));
+                          }}
+                          className="w-full accent-emerald-700 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Scale / Font Size (%) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700">حجم وتكبير الاسم (Scale %):</label>
+                          <span className="text-emerald-800 font-sans font-black bg-emerald-100 px-2 py-0.5 rounded-md">
+                            {currentCourseCert.studentNameScalePct ?? 100}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="50"
+                          max="180"
+                          step="1"
+                          value={currentCourseCert.studentNameScalePct ?? 100}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { studentNameScalePct: val }));
+                          }}
+                          className="w-full accent-emerald-700 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Color of Student Name */}
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-slate-700">لون خط اسم الطالب:</label>
+                        <div className="flex items-center gap-2">
+                          {['#0f172a', '#064e3b', '#1e1b4b', '#78350f', '#000000'].map((clr) => (
+                            <button
+                              key={clr}
+                              type="button"
+                              onClick={() => {
+                                setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { studentNameColor: clr }));
+                              }}
+                              className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer transition-transform hover:scale-110"
+                              style={{ backgroundColor: clr }}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={currentCourseCert.studentNameColor || '#0f172a'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { studentNameColor: val }));
+                            }}
+                            className="w-7 h-7 rounded-lg border border-slate-300 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card 2: Percentage & Score Controls */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4 text-xs font-tajawal">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span className="font-bold font-quran text-sm text-slate-900 flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-amber-600"></span>
+                          مواضع وتنسيق النسبة المئوية للنتيجة
+                        </span>
+                      </div>
+
+                      {/* Vertical Position (Top %) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700">الارتفاع الرأسي (Top % من الأعلى):</label>
+                          <span className="text-amber-900 font-sans font-black bg-amber-100 px-2 py-0.5 rounded-md">
+                            {currentCourseCert.scoreTopPct ?? 56.8}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="90"
+                          step="0.2"
+                          value={currentCourseCert.scoreTopPct ?? 56.8}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { scoreTopPct: val }));
+                          }}
+                          className="w-full accent-amber-600 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Horizontal Position (Right %) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700">الموضع الأفقي (Right % من اليمين):</label>
+                          <span className="text-amber-900 font-sans font-black bg-amber-100 px-2 py-0.5 rounded-md">
+                            {currentCourseCert.scoreRightPct ?? 38.0}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="75"
+                          step="0.2"
+                          value={currentCourseCert.scoreRightPct ?? 38.0}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { scoreRightPct: val }));
+                          }}
+                          className="w-full accent-amber-600 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Scale / Font Size (%) */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-slate-700">حجم وتكبير النسبة (Scale %):</label>
+                          <span className="text-amber-900 font-sans font-black bg-amber-100 px-2 py-0.5 rounded-md">
+                            {currentCourseCert.scoreScalePct ?? 100}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="50"
+                          max="180"
+                          step="1"
+                          value={currentCourseCert.scoreScalePct ?? 100}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { scoreScalePct: val }));
+                          }}
+                          className="w-full accent-amber-600 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Color of Score */}
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-slate-700">لون خط النسبة المئوية:</label>
+                        <div className="flex items-center gap-2">
+                          {['#0f172a', '#9a3412', '#064e3b', '#1e1b4b', '#000000'].map((clr) => (
+                            <button
+                              key={clr}
+                              type="button"
+                              onClick={() => {
+                                setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { scoreColor: clr }));
+                              }}
+                              className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer transition-transform hover:scale-110"
+                              style={{ backgroundColor: clr }}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={currentCourseCert.scoreColor || '#0f172a'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCertConfig((prev) => updateCourseCertSettingsInConfig(prev, certCourseTab, { scoreColor: val }));
+                            }}
+                            className="w-7 h-7 rounded-lg border border-slate-300 cursor-pointer"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Card 2: Percentage & Score Controls */}
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-4 text-xs font-tajawal">
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  {/* Section 3: Live Interactive Certificate Preview Box */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <span className="font-bold font-quran text-sm text-slate-900 flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-amber-600"></span>
-                        مواضع وتنسيق النسبة المئوية للنتيجة
+                        <Eye className="w-4 h-4 text-emerald-700" />
+                        معاينة حية ومباشرة لشهادة ({selectedCertCourse?.title}) بالشكل النهائي:
                       </span>
-                    </div>
-
-                    {/* Vertical Position (Top %) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-700">الارتفاع الرأسي (Top % من الأعلى):</label>
-                        <span className="text-amber-900 font-sans font-black bg-amber-100 px-2 py-0.5 rounded-md">
-                          {certCourseTab === 'idgham'
-                            ? (certConfig.idghamScoreTopPct ?? certConfig.scoreTopPct ?? 56.8)
-                            : (certConfig.scoreTopPct ?? 56.8)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="90"
-                        step="0.2"
-                        value={
-                          certCourseTab === 'idgham'
-                            ? (certConfig.idghamScoreTopPct ?? certConfig.scoreTopPct ?? 56.8)
-                            : (certConfig.scoreTopPct ?? 56.8)
-                        }
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setCertConfig((prev) =>
-                            certCourseTab === 'idgham'
-                              ? { ...prev, idghamScoreTopPct: val }
-                              : { ...prev, scoreTopPct: val }
-                          );
-                        }}
-                        className="w-full accent-amber-600 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Horizontal Position (Right %) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-700">الموضع الأفقي (Right % من اليمين):</label>
-                        <span className="text-amber-900 font-sans font-black bg-amber-100 px-2 py-0.5 rounded-md">
-                          {certCourseTab === 'idgham'
-                            ? (certConfig.idghamScoreRightPct ?? certConfig.scoreRightPct ?? 38.0)
-                            : (certConfig.scoreRightPct ?? 38.0)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="5"
-                        max="75"
-                        step="0.2"
-                        value={
-                          certCourseTab === 'idgham'
-                            ? (certConfig.idghamScoreRightPct ?? certConfig.scoreRightPct ?? 38.0)
-                            : (certConfig.scoreRightPct ?? 38.0)
-                        }
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setCertConfig((prev) =>
-                            certCourseTab === 'idgham'
-                              ? { ...prev, idghamScoreRightPct: val }
-                              : { ...prev, scoreRightPct: val }
-                          );
-                        }}
-                        className="w-full accent-amber-600 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Scale / Font Size (%) */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-slate-700">حجم وتكبير النسبة (Scale %):</label>
-                        <span className="text-amber-900 font-sans font-black bg-amber-100 px-2 py-0.5 rounded-md">
-                          {certCourseTab === 'idgham'
-                            ? (certConfig.idghamScoreScalePct ?? certConfig.scoreScalePct ?? 100)
-                            : (certConfig.scoreScalePct ?? 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="50"
-                        max="180"
-                        step="1"
-                        value={
-                          certCourseTab === 'idgham'
-                            ? (certConfig.idghamScoreScalePct ?? certConfig.scoreScalePct ?? 100)
-                            : (certConfig.scoreScalePct ?? 100)
-                        }
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setCertConfig((prev) =>
-                            certCourseTab === 'idgham'
-                              ? { ...prev, idghamScoreScalePct: val }
-                              : { ...prev, scoreScalePct: val }
-                          );
-                        }}
-                        className="w-full accent-amber-600 cursor-pointer"
-                      />
-                    </div>
-
-                    {/* Color of Score */}
-                    <div className="space-y-1.5">
-                      <label className="font-bold text-slate-700">لون خط النسبة المئوية:</label>
-                      <div className="flex items-center gap-2">
-                        {['#0f172a', '#9a3412', '#064e3b', '#1e1b4b', '#000000'].map((clr) => (
+                      <div className="flex items-center gap-1.5 text-xs font-tajawal">
+                        <span className="text-slate-500 font-bold ml-1">تجربة النسبة:</span>
+                        {[100, 98, 95, 90, 89].map((pct) => (
                           <button
-                            key={clr}
+                            key={pct}
                             type="button"
-                            onClick={() => {
-                              setCertConfig((prev) =>
-                                certCourseTab === 'idgham'
-                                  ? { ...prev, idghamScoreColor: clr }
-                                  : { ...prev, scoreColor: clr }
-                              );
-                            }}
-                            className="w-6 h-6 rounded-full border-2 border-white shadow-md cursor-pointer transition-transform hover:scale-110"
-                            style={{ backgroundColor: clr }}
-                          />
+                            onClick={() => setCertPreviewPercentage(pct)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all ${
+                              certPreviewPercentage === pct
+                                ? 'bg-emerald-800 text-amber-300 shadow-xs'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            %{pct}
+                          </button>
                         ))}
-                        <input
-                          type="color"
-                          value={
-                            certCourseTab === 'idgham'
-                              ? (certConfig.idghamScoreColor || '#0f172a')
-                              : (certConfig.scoreColor || '#0f172a')
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCertConfig((prev) =>
-                              certCourseTab === 'idgham'
-                                ? { ...prev, idghamScoreColor: val }
-                                : { ...prev, scoreColor: val }
-                            );
-                          }}
-                          className="w-7 h-7 rounded-lg border border-slate-300 cursor-pointer"
-                        />
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Section 3: Live Interactive Certificate Preview Box */}
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <span className="font-bold font-quran text-sm text-slate-900 flex items-center gap-2">
-                      <Eye className="w-4 h-4 text-emerald-700" />
-                      معاينة حية ومباشرة للشهادة بالشكل النهائي:
-                    </span>
-                    <div className="flex items-center gap-1.5 text-xs font-tajawal">
-                      <span className="text-slate-500 font-bold ml-1">تجربة النسبة:</span>
-                      {[100, 98, 95, 90, 89].map((pct) => (
-                        <button
-                          key={pct}
-                          type="button"
-                          onClick={() => setCertPreviewPercentage(pct)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold font-sans cursor-pointer transition-all ${
-                            certPreviewPercentage === pct
-                              ? 'bg-emerald-800 text-amber-300 shadow-xs'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                          }`}
-                        >
-                          %{pct}
-                        </button>
-                      ))}
+                    <div className="border-2 border-amber-300/80 rounded-3xl overflow-hidden shadow-xl max-w-3xl mx-auto p-4 bg-slate-900/5">
+                      <CertificateTemplateView
+                        studentName="أحمد محمد إبراهيم (معاينة تجريبية)"
+                        percentage={certPreviewPercentage}
+                        config={certConfig}
+                        courseId={certCourseTab}
+                      />
                     </div>
-                  </div>
-
-                  <div className="border-2 border-amber-300/80 rounded-3xl overflow-hidden shadow-xl max-w-3xl mx-auto p-4 bg-slate-900/5">
-                    <CertificateTemplateView
-                      studentName="أحمد محمد إبراهيم (معاينة تجريبية)"
-                      percentage={certPreviewPercentage}
-                      config={certConfig}
-                      courseId={certCourseTab}
-                    />
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* TAB 5: SUPER ADMIN TRAINERS & LICENSES MANAGEMENT */}
           {activeTab === 'trainers' && (

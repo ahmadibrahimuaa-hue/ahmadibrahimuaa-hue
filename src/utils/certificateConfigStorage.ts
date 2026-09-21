@@ -1,6 +1,24 @@
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
+export interface CourseCertSettings {
+  bgTemplateUrl?: string;
+  studentNameTopPct?: number;
+  studentNameRightPct?: number;
+  studentNameScalePct?: number;
+  studentNameColor?: string;
+  scoreTopPct?: number;
+  scoreRightPct?: number;
+  scoreScalePct?: number;
+  scoreColor?: string;
+  customText1?: string;
+  showCustomText1?: boolean;
+  customText1TopPct?: number;
+  customText1RightPct?: number;
+  customText1ScalePct?: number;
+  customText1Color?: string;
+}
+
 export interface CertificateConfig {
   mainTitle: string;
   headerPraise: string;
@@ -76,7 +94,7 @@ export interface CertificateConfig {
   scoreWidthPct?: number;
   scoreScalePct?: number;
   scoreColor?: string;
-  // Idgham Specific Certificate Template & Overlays
+  // Legacy Idgham Specific Certificate Template & Overlays
   idghamBgTemplateUrl?: string;
   idghamStudentNameTopPct?: number;
   idghamStudentNameRightPct?: number;
@@ -86,6 +104,8 @@ export interface CertificateConfig {
   idghamScoreRightPct?: number;
   idghamScoreScalePct?: number;
   idghamScoreColor?: string;
+  // Generic Multi-Course Certificate Configurations (Supports any bag!)
+  courseCertificates?: Record<string, CourseCertSettings>;
 }
 
 export const DEFAULT_CERTIFICATE_CONFIG: CertificateConfig = {
@@ -276,7 +296,121 @@ const sanitizeConfig = (data: Partial<CertificateConfig>): CertificateConfig => 
     idghamScoreRightPct: Number(data.idghamScoreRightPct ?? 38.0),
     idghamScoreScalePct: Number(data.idghamScoreScalePct ?? 100),
     idghamScoreColor: data.idghamScoreColor || '#0f172a',
+    courseCertificates: data.courseCertificates ? { ...data.courseCertificates } : {},
   };
+};
+
+export const getCourseCertSettings = (
+  config: CertificateConfig,
+  courseId: string = 'sakinan'
+): CourseCertSettings => {
+  if (config.courseCertificates && config.courseCertificates[courseId]) {
+    const s = config.courseCertificates[courseId];
+    return {
+      bgTemplateUrl: s.bgTemplateUrl || (courseId === 'idgham' ? config.idghamBgTemplateUrl : config.bgTemplateUrl) || '/certificate_template.jpg',
+      studentNameTopPct: Number(s.studentNameTopPct ?? (courseId === 'idgham' ? config.idghamStudentNameTopPct : config.studentNameTopPct) ?? 33.8),
+      studentNameRightPct: Number(s.studentNameRightPct ?? (courseId === 'idgham' ? config.idghamStudentNameRightPct : config.studentNameRightPct) ?? 26),
+      studentNameScalePct: Number(s.studentNameScalePct ?? (courseId === 'idgham' ? config.idghamStudentNameScalePct : config.studentNameScalePct) ?? 100),
+      studentNameColor: s.studentNameColor || (courseId === 'idgham' ? config.idghamStudentNameColor : config.studentNameColor) || '#0f172a',
+      scoreTopPct: Number(s.scoreTopPct ?? (courseId === 'idgham' ? config.idghamScoreTopPct : config.scoreTopPct) ?? 56.8),
+      scoreRightPct: Number(s.scoreRightPct ?? (courseId === 'idgham' ? config.idghamScoreRightPct : config.scoreRightPct) ?? 38.0),
+      scoreScalePct: Number(s.scoreScalePct ?? (courseId === 'idgham' ? config.idghamScoreScalePct : config.scoreScalePct) ?? 100),
+      scoreColor: s.scoreColor || (courseId === 'idgham' ? config.idghamScoreColor : config.scoreColor) || '#0f172a',
+      customText1: s.customText1 ?? '',
+      showCustomText1: Boolean(s.showCustomText1),
+      customText1TopPct: Number(s.customText1TopPct ?? 50),
+      customText1RightPct: Number(s.customText1RightPct ?? 20),
+      customText1ScalePct: Number(s.customText1ScalePct ?? 100),
+      customText1Color: s.customText1Color || '#064e3b',
+    };
+  }
+
+  // Legacy fallback for idgham
+  if (courseId === 'idgham') {
+    return {
+      bgTemplateUrl: config.idghamBgTemplateUrl || config.bgTemplateUrl || '/certificate_template.jpg',
+      studentNameTopPct: Number(config.idghamStudentNameTopPct ?? config.studentNameTopPct ?? 33.8),
+      studentNameRightPct: Number(config.idghamStudentNameRightPct ?? config.studentNameRightPct ?? 26),
+      studentNameScalePct: Number(config.idghamStudentNameScalePct ?? config.studentNameScalePct ?? 100),
+      studentNameColor: config.idghamStudentNameColor || config.studentNameColor || '#0f172a',
+      scoreTopPct: Number(config.idghamScoreTopPct ?? config.scoreTopPct ?? 56.8),
+      scoreRightPct: Number(config.idghamScoreRightPct ?? config.scoreRightPct ?? 38.0),
+      scoreScalePct: Number(config.idghamScoreScalePct ?? config.scoreScalePct ?? 100),
+      scoreColor: config.idghamScoreColor || config.scoreColor || '#0f172a',
+      customText1: config.customText1 ?? '',
+      showCustomText1: Boolean(config.showCustomText1),
+      customText1TopPct: Number(config.customText1TopPct ?? 50),
+      customText1RightPct: Number(config.customText1RightPct ?? 20),
+      customText1ScalePct: Number(config.customText1ScalePct ?? 100),
+      customText1Color: config.customText1Color || '#064e3b',
+    };
+  }
+
+  // Default sakinan or base config
+  return {
+    bgTemplateUrl: config.bgTemplateUrl || '/certificate_template.jpg',
+    studentNameTopPct: Number(config.studentNameTopPct ?? 33.8),
+    studentNameRightPct: Number(config.studentNameRightPct ?? 26),
+    studentNameScalePct: Number(config.studentNameScalePct ?? 100),
+    studentNameColor: config.studentNameColor || '#0f172a',
+    scoreTopPct: Number(config.scoreTopPct ?? 56.8),
+    scoreRightPct: Number(config.scoreRightPct ?? 38.0),
+    scoreScalePct: Number(config.scoreScalePct ?? 100),
+    scoreColor: config.scoreColor || '#0f172a',
+    customText1: config.customText1 ?? '',
+    showCustomText1: Boolean(config.showCustomText1),
+    customText1TopPct: Number(config.customText1TopPct ?? 50),
+    customText1RightPct: Number(config.customText1RightPct ?? 20),
+    customText1ScalePct: Number(config.customText1ScalePct ?? 100),
+    customText1Color: config.customText1Color || '#064e3b',
+  };
+};
+
+export const updateCourseCertSettingsInConfig = (
+  prevConfig: CertificateConfig,
+  courseId: string,
+  partial: Partial<CourseCertSettings>
+): CertificateConfig => {
+  const currentSettings = getCourseCertSettings(prevConfig, courseId);
+  const updatedSettings: CourseCertSettings = {
+    ...currentSettings,
+    ...partial,
+  };
+
+  const nextCourseCerts = {
+    ...(prevConfig.courseCertificates || {}),
+    [courseId]: updatedSettings,
+  };
+
+  const nextConfig: CertificateConfig = {
+    ...prevConfig,
+    courseCertificates: nextCourseCerts,
+  };
+
+  // Sync back to top-level if it's sakinan or idgham for backward compatibility
+  if (courseId === 'sakinan') {
+    if (partial.bgTemplateUrl !== undefined) nextConfig.bgTemplateUrl = partial.bgTemplateUrl;
+    if (partial.studentNameTopPct !== undefined) nextConfig.studentNameTopPct = partial.studentNameTopPct;
+    if (partial.studentNameRightPct !== undefined) nextConfig.studentNameRightPct = partial.studentNameRightPct;
+    if (partial.studentNameScalePct !== undefined) nextConfig.studentNameScalePct = partial.studentNameScalePct;
+    if (partial.studentNameColor !== undefined) nextConfig.studentNameColor = partial.studentNameColor;
+    if (partial.scoreTopPct !== undefined) nextConfig.scoreTopPct = partial.scoreTopPct;
+    if (partial.scoreRightPct !== undefined) nextConfig.scoreRightPct = partial.scoreRightPct;
+    if (partial.scoreScalePct !== undefined) nextConfig.scoreScalePct = partial.scoreScalePct;
+    if (partial.scoreColor !== undefined) nextConfig.scoreColor = partial.scoreColor;
+  } else if (courseId === 'idgham') {
+    if (partial.bgTemplateUrl !== undefined) nextConfig.idghamBgTemplateUrl = partial.bgTemplateUrl;
+    if (partial.studentNameTopPct !== undefined) nextConfig.idghamStudentNameTopPct = partial.studentNameTopPct;
+    if (partial.studentNameRightPct !== undefined) nextConfig.idghamStudentNameRightPct = partial.studentNameRightPct;
+    if (partial.studentNameScalePct !== undefined) nextConfig.idghamStudentNameScalePct = partial.studentNameScalePct;
+    if (partial.studentNameColor !== undefined) nextConfig.idghamStudentNameColor = partial.studentNameColor;
+    if (partial.scoreTopPct !== undefined) nextConfig.idghamScoreTopPct = partial.scoreTopPct;
+    if (partial.scoreRightPct !== undefined) nextConfig.idghamScoreRightPct = partial.scoreRightPct;
+    if (partial.scoreScalePct !== undefined) nextConfig.idghamScoreScalePct = partial.scoreScalePct;
+    if (partial.scoreColor !== undefined) nextConfig.idghamScoreColor = partial.scoreColor;
+  }
+
+  return nextConfig;
 };
 
 export const getCertificateConfig = (): CertificateConfig => {
@@ -299,6 +433,27 @@ export const saveCertificateConfig = async (config: CertificateConfig): Promise<
       toSave.bgTemplateUrl = await compressImageDataUrl(toSave.bgTemplateUrl);
     } catch (e) {
       console.warn('Image compression failed, using original', e);
+    }
+  }
+
+  if (toSave.idghamBgTemplateUrl && toSave.idghamBgTemplateUrl.startsWith('data:image')) {
+    try {
+      toSave.idghamBgTemplateUrl = await compressImageDataUrl(toSave.idghamBgTemplateUrl);
+    } catch (e) {
+      console.warn('Image compression failed, using original', e);
+    }
+  }
+
+  if (toSave.courseCertificates) {
+    for (const cId of Object.keys(toSave.courseCertificates)) {
+      const entry = toSave.courseCertificates[cId];
+      if (entry.bgTemplateUrl && entry.bgTemplateUrl.startsWith('data:image')) {
+        try {
+          entry.bgTemplateUrl = await compressImageDataUrl(entry.bgTemplateUrl);
+        } catch (e) {
+          console.warn(`Image compression failed for course ${cId}`, e);
+        }
+      }
     }
   }
 

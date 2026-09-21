@@ -4,6 +4,7 @@ import { ComprehensiveExamQuestion } from '../types';
 import { COMPREHENSIVE_EXAM_BANK } from '../data/comprehensiveExamData';
 import { CURRICULUM_UNITS } from '../data/curriculumData';
 import { IDGHAM_UNITS, IDGHAM_COMPREHENSIVE_EXAM } from '../data/courses/idghamCourse';
+import { MAKHARIJ_UNITS, MAKHARIJ_COMPREHENSIVE_EXAM_BANK } from '../data/courses/makharijCourse';
 
 export interface UnitQuizQuestion {
   id: number;
@@ -21,6 +22,10 @@ export interface QuestionsStorageSchema {
   // Idgham course
   idghamUnitQuizzes?: Record<number, UnitQuizQuestion[]>; // unitNumber -> array of questions
   idghamComprehensiveBank?: ComprehensiveExamQuestion[];
+
+  // Makharij course
+  makharijUnitQuizzes?: Record<number, UnitQuizQuestion[]>;
+  makharijComprehensiveBank?: ComprehensiveExamQuestion[];
 
   // Generalized multi-course structure
   courses?: Record<string, {
@@ -64,11 +69,27 @@ export const getDefaultQuestionBank = (): QuestionsStorageSchema => {
     }
   });
 
+  // 3. Makharij defaults
+  const makharijUnitQuizzes: Record<number, UnitQuizQuestion[]> = {};
+  MAKHARIJ_UNITS.forEach((unit) => {
+    if (unit.quiz && unit.quiz.questions) {
+      makharijUnitQuizzes[unit.unitNumber] = unit.quiz.questions.map((q) => ({
+        id: q.id,
+        question: q.question,
+        options: [...q.options],
+        correctIndex: q.correctIndex,
+        explanation: q.explanation,
+      }));
+    }
+  });
+
   return {
     unitQuizzes: sakinanUnitQuizzes,
     comprehensiveBank: COMPREHENSIVE_EXAM_BANK.map((q) => ({ ...q })),
     idghamUnitQuizzes,
     idghamComprehensiveBank: IDGHAM_COMPREHENSIVE_EXAM.map((q) => ({ ...q })),
+    makharijUnitQuizzes,
+    makharijComprehensiveBank: MAKHARIJ_COMPREHENSIVE_EXAM_BANK.map((q) => ({ ...q })),
     courses: {
       sakinan: {
         unitQuizzes: sakinanUnitQuizzes,
@@ -77,6 +98,10 @@ export const getDefaultQuestionBank = (): QuestionsStorageSchema => {
       idgham: {
         unitQuizzes: idghamUnitQuizzes,
         comprehensiveBank: IDGHAM_COMPREHENSIVE_EXAM.map((q) => ({ ...q })),
+      },
+      makharij: {
+        unitQuizzes: makharijUnitQuizzes,
+        comprehensiveBank: MAKHARIJ_COMPREHENSIVE_EXAM_BANK.map((q) => ({ ...q })),
       },
     },
     updatedAt: Date.now(),
@@ -149,11 +174,20 @@ const normalizeBankData = (data: Partial<QuestionsStorageSchema>): QuestionsStor
   const idghamUnits = data.courses?.idgham?.unitQuizzes || data.idghamUnitQuizzes || defaults.idghamUnitQuizzes || {};
   const idghamExam = data.courses?.idgham?.comprehensiveBank || data.idghamComprehensiveBank || defaults.idghamComprehensiveBank || [];
 
+  const makharijUnits = data.courses?.makharij?.unitQuizzes || data.makharijUnitQuizzes || defaults.makharijUnitQuizzes || {};
+  // If stored exam has fewer than 50 questions, prefer the 50-question bank
+  let makharijExam = data.courses?.makharij?.comprehensiveBank || data.makharijComprehensiveBank;
+  if (!makharijExam || makharijExam.length < 50) {
+    makharijExam = defaults.makharijComprehensiveBank || [];
+  }
+
   return {
     unitQuizzes: sakinanUnits,
     comprehensiveBank: sakinanExam,
     idghamUnitQuizzes: idghamUnits,
     idghamComprehensiveBank: idghamExam,
+    makharijUnitQuizzes: makharijUnits,
+    makharijComprehensiveBank: makharijExam,
     courses: {
       sakinan: {
         unitQuizzes: sakinanUnits,
@@ -162,6 +196,10 @@ const normalizeBankData = (data: Partial<QuestionsStorageSchema>): QuestionsStor
       idgham: {
         unitQuizzes: idghamUnits,
         comprehensiveBank: idghamExam,
+      },
+      makharij: {
+        unitQuizzes: makharijUnits,
+        comprehensiveBank: makharijExam,
       },
     },
     updatedAt: data.updatedAt || Date.now(),
@@ -218,10 +256,27 @@ export const initQuestionStorageSync = () => {
 // Execute sync initialization immediately
 initQuestionStorageSync();
 
+const resolveCourseKey = (courseId: string = 'sakinan'): 'sakinan' | 'idgham' | 'makharij' => {
+  if (courseId === 'makharij') return 'makharij';
+  if (courseId === 'idgham') return 'idgham';
+  return 'sakinan';
+};
+
 // --- GETTERS ---
 export const getUnitQuizQuestions = (unitNumber: number, courseId: string = 'sakinan'): UnitQuizQuestion[] => {
-  const normCourse = courseId === 'idgham' ? 'idgham' : 'sakinan';
+  const normCourse = resolveCourseKey(courseId);
   
+  if (normCourse === 'makharij') {
+    if (currentMemoryBank.courses?.makharij?.unitQuizzes?.[unitNumber]) {
+      return currentMemoryBank.courses.makharij.unitQuizzes[unitNumber];
+    }
+    if (currentMemoryBank.makharijUnitQuizzes?.[unitNumber]) {
+      return currentMemoryBank.makharijUnitQuizzes[unitNumber];
+    }
+    const defaults = getDefaultQuestionBank();
+    return defaults.makharijUnitQuizzes?.[unitNumber] || [];
+  }
+
   if (normCourse === 'idgham') {
     if (currentMemoryBank.courses?.idgham?.unitQuizzes?.[unitNumber]) {
       return currentMemoryBank.courses.idgham.unitQuizzes[unitNumber];
@@ -245,7 +300,17 @@ export const getUnitQuizQuestions = (unitNumber: number, courseId: string = 'sak
 };
 
 export const getComprehensiveExamBank = (courseId: string = 'sakinan'): ComprehensiveExamQuestion[] => {
-  const normCourse = courseId === 'idgham' ? 'idgham' : 'sakinan';
+  const normCourse = resolveCourseKey(courseId);
+
+  if (normCourse === 'makharij') {
+    if (currentMemoryBank.courses?.makharij?.comprehensiveBank && currentMemoryBank.courses.makharij.comprehensiveBank.length >= 50) {
+      return currentMemoryBank.courses.makharij.comprehensiveBank;
+    }
+    if (currentMemoryBank.makharijComprehensiveBank && currentMemoryBank.makharijComprehensiveBank.length >= 50) {
+      return currentMemoryBank.makharijComprehensiveBank;
+    }
+    return getDefaultQuestionBank().makharijComprehensiveBank || [];
+  }
 
   if (normCourse === 'idgham') {
     if (currentMemoryBank.courses?.idgham?.comprehensiveBank && currentMemoryBank.courses.idgham.comprehensiveBank.length > 0) {
@@ -274,7 +339,7 @@ export const saveUnitQuizQuestion = async (
   question: UnitQuizQuestion,
   courseId: string = 'sakinan'
 ) => {
-  const normCourse = courseId === 'idgham' ? 'idgham' : 'sakinan';
+  const normCourse = resolveCourseKey(courseId);
   const bank = normalizeBankData(currentMemoryBank);
   const courseBank = bank.courses![normCourse];
   const unitList = courseBank.unitQuizzes[unitNumber] ? [...courseBank.unitQuizzes[unitNumber]] : [];
@@ -291,6 +356,8 @@ export const saveUnitQuizQuestion = async (
 
   if (normCourse === 'sakinan') {
     bank.unitQuizzes = { ...courseBank.unitQuizzes };
+  } else if (normCourse === 'makharij') {
+    bank.makharijUnitQuizzes = { ...courseBank.unitQuizzes };
   } else {
     bank.idghamUnitQuizzes = { ...courseBank.unitQuizzes };
   }
@@ -307,7 +374,7 @@ export const deleteUnitQuizQuestion = async (
   questionId: number,
   courseId: string = 'sakinan'
 ) => {
-  const normCourse = courseId === 'idgham' ? 'idgham' : 'sakinan';
+  const normCourse = resolveCourseKey(courseId);
   const bank = normalizeBankData(currentMemoryBank);
   const courseBank = bank.courses![normCourse];
   
@@ -317,6 +384,8 @@ export const deleteUnitQuizQuestion = async (
   
   if (normCourse === 'sakinan') {
     bank.unitQuizzes = { ...courseBank.unitQuizzes };
+  } else if (normCourse === 'makharij') {
+    bank.makharijUnitQuizzes = { ...courseBank.unitQuizzes };
   } else {
     bank.idghamUnitQuizzes = { ...courseBank.unitQuizzes };
   }
@@ -332,7 +401,7 @@ export const saveComprehensiveExamQuestion = async (
   question: ComprehensiveExamQuestion,
   courseId: string = 'sakinan'
 ) => {
-  const normCourse = courseId === 'idgham' ? 'idgham' : 'sakinan';
+  const normCourse = resolveCourseKey(courseId);
   const bank = normalizeBankData(currentMemoryBank);
   const courseBank = bank.courses![normCourse];
   const examList = [...(courseBank.comprehensiveBank || [])];
@@ -349,6 +418,8 @@ export const saveComprehensiveExamQuestion = async (
 
   if (normCourse === 'sakinan') {
     bank.comprehensiveBank = examList;
+  } else if (normCourse === 'makharij') {
+    bank.makharijComprehensiveBank = examList;
   } else {
     bank.idghamComprehensiveBank = examList;
   }
@@ -364,7 +435,7 @@ export const deleteComprehensiveExamQuestion = async (
   questionId: number,
   courseId: string = 'sakinan'
 ) => {
-  const normCourse = courseId === 'idgham' ? 'idgham' : 'sakinan';
+  const normCourse = resolveCourseKey(courseId);
   const bank = normalizeBankData(currentMemoryBank);
   const courseBank = bank.courses![normCourse];
   
@@ -372,6 +443,8 @@ export const deleteComprehensiveExamQuestion = async (
 
   if (normCourse === 'sakinan') {
     bank.comprehensiveBank = courseBank.comprehensiveBank;
+  } else if (normCourse === 'makharij') {
+    bank.makharijComprehensiveBank = courseBank.comprehensiveBank;
   } else {
     bank.idghamComprehensiveBank = courseBank.comprehensiveBank;
   }
@@ -389,7 +462,7 @@ export const resetQuestionsToDefault = async (courseId?: string) => {
   if (!courseId) {
     currentMemoryBank = defaults;
   } else {
-    const normCourse = courseId === 'idgham' ? 'idgham' : 'sakinan';
+    const normCourse = resolveCourseKey(courseId);
     const bank = normalizeBankData(currentMemoryBank);
     bank.courses![normCourse] = defaults.courses![normCourse];
     if (normCourse === 'sakinan') {

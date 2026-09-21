@@ -161,7 +161,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
       if (trainerLoginMode === 'admin_master') {
         const cleanAdminPass = adminMasterCode.trim();
         if (!cleanAdminPass) {
-          setTrainerError('يرجى إدخال الرمز السري للمشرف العام (مثل 2026 أو كلمة مرورك)');
+          setTrainerError('يرجى إدخال الرمز السري للمشرف العام أو كلمة مرور حسابك');
           setIsSubmittingTrainer(false);
           return;
         }
@@ -180,7 +180,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
         const cleanUser = trainerUsername.trim();
         const cleanPass = trainerPassword.trim();
         if (!cleanUser && !cleanPass) {
-          setTrainerError('يرجى إدخال كلمة المرور (مثل: 2026 أو كلمة مرور حسابك)');
+          setTrainerError('يرجى إدخال كلمة المرور الخاصة بحسابك');
           setIsSubmittingTrainer(false);
           return;
         }
@@ -506,7 +506,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                         setTrainerPassword(e.target.value);
                         if (trainerError) setTrainerError('');
                       }}
-                      placeholder="كلمة المرور (2026 أو كلمة مرور حسابك)..."
+                      placeholder="كلمة المرور الخاصة بحسابك..."
                       className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right font-sans pl-10"
                       autoFocus
                       required
@@ -535,7 +535,7 @@ export const StudentRegistrationModal: React.FC<StudentRegistrationModalProps> =
                         setAdminMasterCode(e.target.value);
                         if (trainerError) setTrainerError('');
                       }}
-                      placeholder="أدخل الرمز السري (2026 أو كلمة مرورك)..."
+                      placeholder="أدخل الرمز السري الخاص بك..."
                       className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm px-4 py-3 rounded-xl border border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500 text-right font-sans pl-10"
                       autoFocus
                       required

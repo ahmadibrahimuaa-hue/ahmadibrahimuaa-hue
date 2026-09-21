@@ -10,6 +10,14 @@ import {
   MAKHARIJ_BOOKS,
 } from './makharij/makharijData';
 
+export const MAKHARIJ_UNITS = [
+  MAKHARIJ_UNIT_1,
+  MAKHARIJ_UNIT_2,
+  MAKHARIJ_UNIT_3,
+];
+
+export { MAKHARIJ_COMPREHENSIVE_EXAM_BANK };
+
 export const MAKHARIJ_COURSE: Course = {
   id: 'makharij',
   title: 'مخارج الحروف وصفاتها ودقائق تحريراتها',
@@ -57,11 +65,7 @@ export const MAKHARIJ_COURSE: Course = {
       badge: 'الباب الثالث (3 دروس)'
     }
   ],
-  units: [
-    MAKHARIJ_UNIT_1,
-    MAKHARIJ_UNIT_2,
-    MAKHARIJ_UNIT_3,
-  ],
+  units: MAKHARIJ_UNITS,
   summaryTable: MAKHARIJ_SUMMARY_TABLE,
   exceptionWords: MAKHARIJ_EXCEPTION_WORDS,
   quranExamples: MAKHARIJ_QURAN_EXAMPLES,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CertificateConfig } from '../utils/certificateConfigStorage';
+import { CertificateConfig, getCourseCertSettings } from '../utils/certificateConfigStorage';
 
 interface Props {
   studentName: string;
@@ -16,49 +16,22 @@ export const CertificateTemplateView: React.FC<Props> = ({
   config,
   className = '',
   onPrint,
-  courseId,
+  courseId = 'sakinan',
 }) => {
-  const isIdgham = courseId === 'idgham';
+  const courseSettings = getCourseCertSettings(config, courseId);
 
-  const bgUrl = isIdgham
-    ? (config.idghamBgTemplateUrl || config.bgTemplateUrl || '/certificate_template.jpg')
-    : (config.bgTemplateUrl || '/certificate_template.jpg');
-
-  const studentTop = isIdgham
-    ? (config.idghamStudentNameTopPct ?? config.studentNameTopPct ?? 33.8)
-    : (config.studentNameTopPct ?? 33.8);
-
-  const studentRight = isIdgham
-    ? (config.idghamStudentNameRightPct ?? config.studentNameRightPct ?? 26)
-    : (config.studentNameRightPct ?? 26);
-
+  const bgUrl = courseSettings.bgTemplateUrl || '/certificate_template.jpg';
+  const studentTop = courseSettings.studentNameTopPct ?? 33.8;
+  const studentRight = courseSettings.studentNameRightPct ?? 26;
   const studentWidth = config.studentNameWidthPct ?? 48;
+  const studentScale = (courseSettings.studentNameScalePct ?? 100) / 100;
+  const studentColor = courseSettings.studentNameColor || '#0f172a';
 
-  const studentScale = isIdgham
-    ? ((config.idghamStudentNameScalePct ?? config.studentNameScalePct ?? 100) / 100)
-    : ((config.studentNameScalePct ?? 100) / 100);
-
-  const studentColor = isIdgham
-    ? (config.idghamStudentNameColor || config.studentNameColor || '#0f172a')
-    : (config.studentNameColor || '#0f172a');
-
-  const scoreTop = isIdgham
-    ? (config.idghamScoreTopPct ?? config.scoreTopPct ?? 56.8)
-    : (config.scoreTopPct ?? 56.8);
-
-  const scoreRight = isIdgham
-    ? (config.idghamScoreRightPct ?? config.scoreRightPct ?? 38.0)
-    : (config.scoreRightPct ?? 38.0);
-
+  const scoreTop = courseSettings.scoreTopPct ?? 56.8;
+  const scoreRight = courseSettings.scoreRightPct ?? 38.0;
   const scoreWidth = config.scoreWidthPct ?? 20;
-
-  const scoreScale = isIdgham
-    ? ((config.idghamScoreScalePct ?? config.scoreScalePct ?? 100) / 100)
-    : ((config.scoreScalePct ?? 100) / 100);
-
-  const scoreColor = isIdgham
-    ? (config.idghamScoreColor || config.scoreColor || '#0f172a')
-    : (config.scoreColor || '#0f172a');
+  const scoreScale = (courseSettings.scoreScalePct ?? 100) / 100;
+  const scoreColor = courseSettings.scoreColor || '#0f172a';
 
   const getGradeTitle = (pct: number) => {
     if (pct >= 95) return 'ممتاز';

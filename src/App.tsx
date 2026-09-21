@@ -212,8 +212,20 @@ export default function App() {
     const handleUnlockEvent = () => {
       setUnlockUpdateCounter((c) => c + 1);
     };
+    const handleOpenShare = () => {
+      setShowShareModal(true);
+    };
+    const handleOpenProg = () => {
+      setShowProgressModal(true);
+    };
     window.addEventListener('tajweed_unlocked_updated', handleUnlockEvent);
-    return () => window.removeEventListener('tajweed_unlocked_updated', handleUnlockEvent);
+    window.addEventListener('tajweed_open_share_achievement', handleOpenShare);
+    window.addEventListener('tajweed_open_progress_modal', handleOpenProg);
+    return () => {
+      window.removeEventListener('tajweed_unlocked_updated', handleUnlockEvent);
+      window.removeEventListener('tajweed_open_share_achievement', handleOpenShare);
+      window.removeEventListener('tajweed_open_progress_modal', handleOpenProg);
+    };
   }, []);
 
   const currentUnit = activeCourse.units[selectedUnitIndex] || activeCourse.units[0];
@@ -395,7 +407,16 @@ export default function App() {
               )}
               {activeTab === 'units' && (
                 currentUnit ? (
-                  <UnitView key={`${activeCourseId}_${currentUnit.id}`} unit={currentUnit} course={activeCourse} isTeacherMode={isTeacherMode} />
+                  <UnitView
+                    key={`${activeCourseId}_${currentUnit.id}`}
+                    unit={currentUnit}
+                    course={activeCourse}
+                    isTeacherMode={isTeacherMode}
+                    onNavigateToExam={() => {
+                      setIsExamActive(true);
+                      setActiveTab('exam');
+                    }}
+                  />
                 ) : (
                   <div className="bg-white rounded-3xl p-10 border-2 border-dashed border-emerald-300 text-center space-y-4 font-tajawal">
                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-800">
@@ -707,7 +728,10 @@ export default function App() {
       <FloatingWhatsAppSupport />
 
       {/* Global Badge Earned Notification Toast */}
-      <BadgeEarnedToast />
+      <BadgeEarnedToast
+        onOpenShareModal={() => setShowShareModal(true)}
+        onOpenProgressModal={() => setShowProgressModal(true)}
+      />
 
       {/* Quran Font Picker Modal */}
       <QuranFontModal isOpen={showFontModal} onClose={() => setShowFontModal(false)} />

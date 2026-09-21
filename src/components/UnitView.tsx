@@ -19,6 +19,7 @@ interface UnitViewProps {
   unit: Unit;
   course?: Course;
   isTeacherMode?: boolean;
+  onNavigateToExam?: () => void;
 }
 
 /* Helper Component for Rendering Rich Structured Markdown Lesson Content */
@@ -121,7 +122,7 @@ function renderInlineFormatting(text: string) {
   });
 }
 
-export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode = true }) => {
+export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode = true, onNavigateToExam }) => {
   const [activeLessonIndex, setActiveLessonIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'lesson' | 'quiz' | 'atlas' | 'sifaat'>('lesson');
   const [showDiagramTree, setShowDiagramTree] = useState<boolean>(true);
@@ -262,6 +263,15 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
 
   const isIdgham = courseId === 'idgham' || course?.id === 'idgham';
   const isMakharij = courseId === 'makharij' || course?.id === 'makharij' || unit.id.startsWith('makharij');
+
+  const handleFinishUnitAndStartExam = async () => {
+    await markUnitCompleted(unit.unitNumber, true, courseId);
+    if (onNavigateToExam) {
+      onNavigateToExam();
+    } else {
+      setViewMode('quiz');
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -747,12 +757,129 @@ export const UnitView: React.FC<UnitViewProps> = ({ unit, course, isTeacherMode 
               </div>
             </div>
           </div>
+
+          {/* Lesson Navigation Controls */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 font-tajawal">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+              <button
+                type="button"
+                disabled={activeLessonIndex === 0}
+                onClick={() => {
+                  if (activeLessonIndex > 0) setActiveLessonIndex(activeLessonIndex - 1);
+                }}
+                className={`px-4 py-2.5 rounded-xl font-bold font-quran text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                  activeLessonIndex === 0
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 shadow-sm'
+                }`}
+              >
+                <ArrowRight className="w-4 h-4" />
+                <span>الدرس السابق</span>
+              </button>
+
+              <span className="text-xs font-bold text-slate-600 font-sans">
+                {activeLessonIndex + 1} / {unit.lessons.length}
+              </span>
+
+              {activeLessonIndex < unit.lessons.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveLessonIndex(activeLessonIndex + 1)}
+                  className="px-4 py-2.5 rounded-xl font-bold font-quran text-xs flex items-center gap-2 transition-all cursor-pointer bg-emerald-900 hover:bg-emerald-950 text-amber-300 shadow-sm"
+                >
+                  <span>الدرس التالي</span>
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* If on the last lesson: Prominent Card to start 35-questions exam */}
+            {activeLessonIndex === unit.lessons.length - 1 && (
+              <button
+                type="button"
+                onClick={handleFinishUnitAndStartExam}
+                className="w-full sm:w-auto bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-extrabold font-quran px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer text-xs sm:text-sm"
+              >
+                <Award className="w-4 h-4 text-slate-950" />
+                <span>
+                  {isMakharij
+                    ? '🎉 أتممت دروس الباب! خوض اختبار الـ 35 سؤالاً الآن ❯'
+                    : '🎉 أتممت دروس الباب! الانتقال للاختبار التقييمي ❯'}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* Special Banner for Makharij at last lesson */}
+          {activeLessonIndex === unit.lessons.length - 1 && isMakharij && (
+            <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 rounded-2xl p-6 sm:p-7 border-2 border-amber-400 text-white shadow-xl space-y-3 font-tajawal">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-amber-400 text-slate-950 px-3 py-0.5 rounded-full text-[11px] font-bold font-quran shadow">
+                      بنك الـ 50 سؤالاً المعتمد
+                    </span>
+                    <span className="bg-emerald-800 text-amber-300 px-3 py-0.5 rounded-full text-[11px] font-bold font-quran border border-emerald-700">
+                      35 سؤالاً عشوائياً للدارس
+                    </span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold font-quran text-amber-200">
+                    الاختبار التقييمي لحقيبة مخارج الحروف وصفاتها
+                  </h3>
+                  <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                    بمجرد إتمامك لدروس الباب، يمكنك الآن خوض الاختبار الفوري المكون من 35 سؤالاً عشوائياً تم اختيارها بدقة من أصل 50 سؤالاً في بنك الأسئلة الشامل.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFinishUnitAndStartExam}
+                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold font-quran px-6 py-3 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer text-xs sm:text-sm shrink-0 whitespace-nowrap"
+                >
+                  <Award className="w-4 h-4 text-slate-950" />
+                  <span>بدء الاختبار (35 سؤالاً) الآن ❯</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {viewMode === 'quiz' && (
         /* Unit Review & Short Quiz Section */
         <div className="space-y-8">
+          {/* Makharij 35 from 50 Bank Special Exam Banner */}
+          {isMakharij && (
+            <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900 rounded-2xl p-6 sm:p-7 border-2 border-amber-400 text-white shadow-xl space-y-4 font-tajawal">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-amber-400 text-slate-950 text-xs font-bold px-3 py-1 rounded-full font-quran shadow">
+                      بنك الأسئلة الشامل (50 سؤالاً)
+                    </span>
+                    <span className="bg-emerald-800 text-amber-300 text-xs font-bold px-3 py-1 rounded-full border border-emerald-700">
+                      35 سؤالاً عشوائياً لكل محاولة
+                    </span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-bold font-quran text-amber-100">
+                    الاختبار التقييمي لحقيبة مخارج الحروف وصفاتها
+                  </h3>
+                  <p className="text-xs sm:text-sm text-emerald-100 max-w-2xl leading-relaxed">
+                    وفقاً للحقيبة المنهجية، تم إعداد بنك متكامل مكون من 50 سؤالاً متخصصاً في المخارج والصفات وتخليص المتجاورات، يتم اختيار 35 سؤالاً عشوائياً منها آلياً لتظهر للدارس بعد إتمام دراسة الباب.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFinishUnitAndStartExam}
+                  className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-bold font-quran px-6 py-3.5 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center gap-2 cursor-pointer text-xs sm:text-sm shrink-0 whitespace-nowrap"
+                >
+                  <Award className="w-5 h-5 text-slate-950" />
+                  <span>بدء اختبار الـ 35 سؤالاً الآن ❯</span>
+                </button>
+              </div>
+            </div>
+          )}
           {/* Unit Review Box */}
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <h2 className="text-xl font-bold font-quran text-slate-900 border-b border-slate-100 pb-2">

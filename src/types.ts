@@ -235,9 +235,9 @@ export interface TrainerAccount {
   password: string; // trainer passcode
   role: 'super_admin' | 'trainer';
   status: 'active' | 'suspended';
-  referralCode: string; // code to share with students (e.g. "AHMED2026")
+  referralCode: string; // code to share with students (e.g. "AHMED-QURAN")
   phone?: string;
-  notes?: string; // subscription notes (e.g. "اشتراك سنوي حتى نهاية 2026")
+  notes?: string; // subscription notes (e.g. "اشتراك سنوي معتمد")
   maxStudents?: number; // 0 for unlimited
   createdAt: string;
   updatedAt?: number;

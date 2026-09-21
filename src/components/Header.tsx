@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'errors', label: 'أخطاء القراء والتصحيح', icon: ShieldAlert, count: 'ميداني' },
     { id: 'summary', label: 'جدول المقارنة الشامل', icon: Table, count: 'جميع الطرق' },
     { id: 'exam', label: 'الاختبار النهائي الشامل', icon: Award, count: 'اختبار' },
-    { id: 'rules', label: 'منظومات وقواعد الحفظ', icon: Bookmark, count: 'الأراجيز' },
+    { id: 'rules', label: 'دليل الأحكام السريع (CheatSheet)', icon: Bookmark, count: 'بحث وتصفية' },
     { id: 'books', label: 'المراجع والمصادر العلمية', icon: Book, count: 'أمهات الكتب' },
   ];
 

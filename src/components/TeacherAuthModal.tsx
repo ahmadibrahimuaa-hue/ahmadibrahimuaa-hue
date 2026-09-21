@@ -42,7 +42,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
     const cleanPass = password.trim();
 
     if (!cleanUser && !cleanPass) {
-      setErrorMsg('يرجى إدخال كلمة المرور (مثل: 2026 أو كلمة مرور حسابك)');
+      setErrorMsg('يرجى إدخال كلمة المرور الخاصة بحسابك');
       return;
     }
 
@@ -73,7 +73,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
     const cleanPass = quickPasscode.trim();
 
     if (!cleanPass) {
-      setErrorMsg('يرجى إدخال الرمز السري للمشرف العام (مثل 2026)');
+      setErrorMsg('يرجى إدخال الرمز السري للمشرف العام أو كلمة مرور حسابك');
       return;
     }
 
@@ -182,7 +182,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
                   type={showPass ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (errorMsg) setErrorMsg(''); }}
-                  placeholder="اكتب كلمة المرور (2026 أو كلمة مرور حسابك)..."
+                  placeholder="اكتب كلمة المرور الخاصة بحسابك..."
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans text-sm pr-4 pl-10 py-3 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
                   autoFocus
                   required
@@ -229,7 +229,7 @@ export const TeacherAuthModal: React.FC<TeacherAuthModalProps> = ({
                   type={showPass ? 'text' : 'password'}
                   value={quickPasscode}
                   onChange={(e) => { setQuickPasscode(e.target.value); if (errorMsg) setErrorMsg(''); }}
-                  placeholder="أدخل الرمز السري (2026 أو كلمة المرور الخاصة بك)..."
+                  placeholder="أدخل الرمز السري الخاص بك..."
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans text-sm pr-4 pl-10 py-3 rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-right"
                   autoFocus
                   required

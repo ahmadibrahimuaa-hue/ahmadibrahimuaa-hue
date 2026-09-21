@@ -673,7 +673,7 @@ export const AdminTrainersPanel: React.FC<AdminTrainersPanelProps> = ({
                     type="text"
                     value={formReferralCode}
                     onChange={(e) => setFormReferralCode(e.target.value)}
-                    placeholder="مثال: MAHMOUD2026"
+                    placeholder="مثال: MAHMOUD-QURAN"
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 font-sans uppercase"
                   />
                 </div>
@@ -699,7 +699,7 @@ export const AdminTrainersPanel: React.FC<AdminTrainersPanelProps> = ({
                 <textarea
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="مثال: اشتراك سنوي - مركز الفرقان القرآني - مدفوع حتى 2026/12/31"
+                  placeholder="مثال: اشتراك سنوي - مركز الفرقان القرآني - مدفوع ومعتمد"
                   rows={2}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-tajawal"
                 />

@@ -48,6 +48,13 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
   const totalUnitsInCourse = course ? course.units.length : 5;
   const examStorageKey = `tajweed_exam_saved_result_v3_${courseId}`;
 
+  const isMakharijCourse = courseId === 'makharij';
+  const targetQuestionCount = isMakharijCourse ? 35 : 20;
+  const challengeDuration = isMakharijCourse ? 350 : 150; // 5:50 for 35 questions, 2:30 for 20 questions
+  const standardDuration = isMakharijCourse ? 900 : 300; // 15:00 for 35 questions, 5:00 for 20 questions
+  const challengeTimeDisplay = isMakharijCourse ? '05:50 دقيقة' : '02:30 دقيقة';
+  const standardTimeDisplay = isMakharijCourse ? '15:00 دقيقة' : '05:00 دقائق';
+
   const [examState, setExamState] = useState<'instructions' | 'taking' | 'submitted'>('instructions');
   const [isChallengeMode, setIsChallengeMode] = useState<boolean>(true);
   const [timeLeft, setTimeLeft] = useState<number>(150); // 150s (2:30) for challenge, 300s (5:00) for standard
@@ -132,7 +139,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
   const initializeExam = () => {
     const examBank: ComprehensiveExamQuestion[] = getComprehensiveExamBank(courseId);
     const shuffledBank = shuffleArray(examBank);
-    const selected = shuffledBank.slice(0, Math.min(20, shuffledBank.length));
+    const selected = shuffledBank.slice(0, Math.min(targetQuestionCount, shuffledBank.length));
     const preparedQuestions: ActiveQuestion[] = selected.map((q) => ({
       ...q,
       shuffledOptions: q.options ? shuffleArray(q.options) : [],
@@ -184,7 +191,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
     setSavedScore(null);
     setSavedPercentage(null);
     initializeExam();
-    const duration = isChallengeMode ? 150 : 300; // 2:30 for challenge mode, 5:00 for standard mode
+    const duration = isChallengeMode ? challengeDuration : standardDuration;
     setTimeLeft(duration);
     setExamState('taking');
   };
@@ -288,7 +295,12 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
   };
 
   // 0. LOCKED VIEW: When units are not completed yet
-  if (!isTeacherMode && completedUnitsCount < totalUnitsInCourse) {
+  // For Makharij: student can take the 35 random question exam after finishing at least one unit (الباب)
+  const isLocked = !isTeacherMode && (
+    isMakharijCourse ? completedUnitsCount < 1 : completedUnitsCount < totalUnitsInCourse
+  );
+
+  if (isLocked) {
     return (
       <div className="bg-white rounded-3xl p-8 sm:p-12 border-2 border-amber-300 shadow-xl text-center space-y-6 dir-rtl max-w-3xl mx-auto my-6 no-print font-tajawal">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-100 border-4 border-amber-300 text-amber-800 shadow-inner">
@@ -300,10 +312,14 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
             تنبيه نظام الاعتماد المنهجي
           </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold font-quran text-slate-900 mt-2">
-            الاختبار الشامل مقفل حتى إتمام دراسة جميع أبواب دورة ({courseTitle})
+            {isMakharijCourse
+              ? `اختبار حقيبة (${courseTitle}) يتاح بعد إتمام دراسة الباب`
+              : `الاختبار الشامل مقفل حتى إتمام دراسة جميع أبواب دورة (${courseTitle})`}
           </h2>
           <p className="text-xs sm:text-sm font-tajawal text-slate-600 max-w-xl mx-auto leading-relaxed">
-            وفقاً للنظام التعليمي المعتمد، لا يمكن خوض الاختبار النهائي الشامل إلا بعد الاستيعاب الكامل لدراسة الأبواب التدريبية أولاً.
+            {isMakharijCourse
+              ? 'وفقاً للنظام التعليمي المعتمد، يتاح اختبار حقيبة مخارج الحروف وصفاتها (35 سؤالاً عشوائياً من أصل 50 سؤالاً) بعد إنهاء دراسة الباب وتثبيت مسائله.'
+              : 'وفقاً للنظام التعليمي المعتمد، لا يمكن خوض الاختبار النهائي الشامل إلا بعد الاستيعاب الكامل لدراسة الأبواب التدريبية أولاً.'}
           </p>
         </div>
 
@@ -427,7 +443,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
             تعليمات ودواعي أداء الاختبار الشامل
           </h1>
           <p className="text-xs sm:text-sm text-emerald-200/90 font-tajawal leading-relaxed">
-            يرجى قراءة التعليمات التالية بتركيز قبل البدء. هذا الاختبار يقيس مستوى إتقانك الشامل لجميع أبواب التقاء الساكنين.
+            يرجى قراءة التعليمات التالية بتركيز قبل البدء. هذا الاختبار يقيس مستوى إتقانك الشامل لجميع أبواب {courseTitle}.
           </p>
         </div>
 
@@ -470,7 +486,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="font-bold font-quran text-sm text-amber-950">وضع التحدي الذكي ⚡</span>
                     <span className="bg-amber-400 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full font-sans">
-                      02:30 دقيقة
+                      {challengeTimeDisplay}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 font-tajawal leading-relaxed">
@@ -496,7 +512,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="font-bold font-quran text-sm text-emerald-950">الوضع المعياري التدريبي ⏱️</span>
                     <span className="bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-sans">
-                      05:00 دقائق
+                      {standardTimeDisplay}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 font-tajawal leading-relaxed">
@@ -512,9 +528,9 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
               <Clock className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
                 <strong className="text-amber-950 block text-sm font-bold mb-0.5">
-                  1. عداد زمني محدد ({isChallengeMode ? 'دقيقتان ونصف 02:30' : 'خمس دقائق 05:00'}):
+                  1. عداد زمني محدد ({isChallengeMode ? challengeTimeDisplay : standardTimeDisplay}):
                 </strong>
-                ستبدأ ساعة تنازلية دقيقة فور التأكيد. يُرجى التركيز والإجابة على الـ 20 سؤالاً قبل نهاية الوقت.
+                ستبدأ ساعة تنازلية دقيقة فور التأكيد. يُرجى التركيز والإجابة على الـ {targetQuestionCount} سؤالاً {isMakharijCourse ? '(المختارة عشوائياً من بنك الـ 50 سؤالاً)' : ''} قبل نهاية الوقت.
               </div>
             </div>
 
@@ -646,7 +662,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
             <span>بنك الأسئلة التفاعلي - الاختبار النهائي الشامل</span>
           </div>
           <span className="bg-amber-400/20 text-amber-300 border border-amber-400/30 text-xs font-bold px-3 py-1 rounded-full">
-            20 سؤالاً تقييمياً شاملاً
+            {targetQuestionCount} سؤالاً تقييمياً شاملاً {isMakharijCourse ? '(اختيار عشوائي من 50 سؤالاً)' : ''}
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold font-quran text-amber-100">
@@ -725,8 +741,8 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
               />
             </div>
 
-            {/* Jump Buttons 1 to 20 */}
-            <div className="flex items-center justify-between gap-1 overflow-x-auto pt-2 pb-1">
+            {/* Jump Buttons 1 to {targetQuestionCount} */}
+            <div className="flex items-center justify-start gap-1.5 flex-wrap pt-2 pb-1 max-h-36 overflow-y-auto">
               {activeQuestions.map((q, idx) => {
                 const isSelected = selectedAnswers[q.id] !== undefined;
                 const isActive = idx === currentIndex;
@@ -867,7 +883,7 @@ export const ComprehensiveExamView: React.FC<ComprehensiveExamViewProps> = ({
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">
                 {percentage >= 90 
-                  ? 'أحسنت صنعاً وتألقت في الإجابة على أسئلة الاختبار الشامل لمادة التقاء الساكنين. صدَرت شهادتك المعتمدة بالأسفل فوراً!'
+                  ? `أحسنت صنعاً وتألقت في الإجابة على أسئلة الاختبار الشامل لمادة ${courseTitle}. صدَرت شهادتك المعتمدة بالأسفل فوراً!`
                   : `حصلت على نسبة ${percentage}% (تقدير: ${getGradeTitle(percentage)}). تعتبر لم تجتز الاختبار لأن نسبة الاجتياز المعتمدة هي 90% فما فوق. يتوجب عليك إعادة خوض الاختبار، وتم إخفاء فحص الإجابات والشهادة بالكامل حتى تحقيق شرط الاجتياز.`}
               </p>
             </div>

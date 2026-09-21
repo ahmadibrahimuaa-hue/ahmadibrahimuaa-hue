@@ -128,6 +128,27 @@ const IDGHAM_UNIT_BADGES_CONFIG: Record<number, { title: string; subtitle: strin
   },
 };
 
+const MAKHARIJ_UNIT_BADGES_CONFIG: Record<number, { title: string; subtitle: string; icon: string; desc: string }> = {
+  1: {
+    title: 'فارس المخارج السبعة عشر 🎙️',
+    subtitle: 'إتمام الباب الأول',
+    icon: '🎙️',
+    desc: 'إتقان المخارج الخمسة العامة والسبعة عشر الخاصة ومذاهب أئمة القراءات الخليل وابن الجزري والشاطبي.',
+  },
+  2: {
+    title: 'حارس الصفات والتفخيم 💎',
+    subtitle: 'إتمام الباب الثاني',
+    icon: '💎',
+    desc: 'إتقان الصفات المتضادة وغير المتضادة ومراتب القلقلة والتفخيم والترقيق.',
+  },
+  3: {
+    title: 'متقن التحريرات وتخليص المتجاورات ⚖️',
+    subtitle: 'إتمام الباب الثالث',
+    icon: '⚖️',
+    desc: 'إتقان ألقاب الحروف وتخليص المفخم من المرقق ودقائق الأداء التجويدي المحرر.',
+  },
+};
+
 export const getCourseBadges = (
   prog: SingleCourseProgress,
   courseId: string = 'sakinan'
@@ -155,6 +176,8 @@ export const getCourseBadges = (
         config = SAKINAN_UNIT_BADGES_CONFIG[uNum];
       } else if (courseId === 'idgham' && IDGHAM_UNIT_BADGES_CONFIG[uNum]) {
         config = IDGHAM_UNIT_BADGES_CONFIG[uNum];
+      } else if (courseId === 'makharij' && MAKHARIJ_UNIT_BADGES_CONFIG[uNum]) {
+        config = MAKHARIJ_UNIT_BADGES_CONFIG[uNum];
       }
 
       badges.push({

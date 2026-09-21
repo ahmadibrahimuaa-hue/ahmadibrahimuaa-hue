@@ -157,9 +157,11 @@ export const markUnitCompleted = async (unitNumber: number, completed: boolean =
       notifyBadgeUnlocked(unitBadge);
     }
     // Check if all units completed
+    const course = getCourseById(courseId);
+    const totalUnits = course?.units?.length || 5;
     const allUnitsBadge = badges.find((b) => b.id === `all_units_${courseId}`);
-    if (allUnitsBadge && allUnitsBadge.isUnlocked && !prevProg.completedUnitNumbers.length) {
-      setTimeout(() => notifyBadgeUnlocked(allUnitsBadge), 1200);
+    if (allUnitsBadge && allUnitsBadge.isUnlocked && prog.completedUnitNumbers.length >= totalUnits && prevProg.completedUnitNumbers.length < totalUnits) {
+      setTimeout(() => notifyBadgeUnlocked(allUnitsBadge), 1500);
     }
   }
 };

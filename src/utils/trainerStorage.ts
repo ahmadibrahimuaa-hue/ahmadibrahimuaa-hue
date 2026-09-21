@@ -9,7 +9,7 @@ export const SUPER_ADMIN_ACCOUNT: TrainerAccount = {
   id: 'super_admin',
   name: 'المشرف العام (الإدارة المركزية)',
   username: 'admin',
-  password: '2026',
+  password: 'ahmED@123',
   role: 'super_admin',
   status: 'active',
   referralCode: 'ADMIN',
@@ -58,7 +58,13 @@ export const subscribeTrainers = (callback: (trainers: TrainerAccount[]) => void
           const list: TrainerAccount[] = [];
           snapshot.forEach((d) => {
             const data = d.data() as TrainerAccount;
-            list.push({ ...data, id: d.id });
+            const item = { ...data, id: d.id };
+            // تنظيف وإلغاء أي أثر لكلمة المرور القديمة 2026 نهائياً
+            if (item.password === '2026') {
+              item.password = (item.role === 'super_admin' || item.id === 'super_admin') ? 'ahmED@123' : '123';
+              setDoc(doc(db, 'trainers', item.id), item).catch(() => {});
+            }
+            list.push(item);
           });
           
           cachedTrainers = list;
@@ -120,10 +126,22 @@ export const getLocalTrainers = (): TrainerAccount[] => {
     if (raw) {
       const parsed = JSON.parse(raw) as TrainerAccount[];
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // تنظيف وإلغاء أي أثر لرمز 2026 في الحسابات المخزنة محلياً
+        let hasModifiedLegacy = false;
+        parsed.forEach((t) => {
+          if (t.password === '2026') {
+            t.password = (t.role === 'super_admin' || t.id === 'super_admin') ? 'ahmED@123' : '123';
+            hasModifiedLegacy = true;
+          }
+        });
         // Ensure super admin is present without overwriting custom password
         const adminFound = parsed.find((t) => t.role === 'super_admin' || t.id === 'super_admin');
         if (!adminFound) {
           parsed.unshift(SUPER_ADMIN_ACCOUNT);
+          hasModifiedLegacy = true;
+        }
+        if (hasModifiedLegacy && typeof window !== 'undefined') {
+          saveLocalTrainers(parsed);
         }
         cachedTrainers = parsed;
         return parsed;
@@ -152,7 +170,12 @@ export const getAllTrainersAsync = async (): Promise<TrainerAccount[]> => {
       const list: TrainerAccount[] = [];
       snap.forEach((d) => {
         const data = d.data() as TrainerAccount;
-        list.push({ ...data, id: d.id });
+        const item = { ...data, id: d.id };
+        if (item.password === '2026') {
+          item.password = (item.role === 'super_admin' || item.id === 'super_admin') ? 'ahmED@123' : '123';
+          setDoc(doc(db, 'trainers', item.id), item).catch(() => {});
+        }
+        list.push(item);
       });
       
       // If there are any locally added custom trainers not yet synced to Firestore, keep them
@@ -341,6 +364,10 @@ export const updateTrainerPassword = async (
     return { success: false, error: 'يرجى إدخال كلمة مرور جديدة صالحة' };
   }
 
+  if (cleanNew === '2026') {
+    return { success: false, error: 'لا يمكن استخدام هذا الرمز ككلمة مرور، يرجى اختيار كلمة مرور قوية وخاصة بك' };
+  }
+
   if (cleanOld === cleanNew) {
     return { success: false, error: 'كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية' };
   }
@@ -374,21 +401,24 @@ export interface AuthResult {
 
 /**
  * دالة التحقق الذكية من كلمة مرور المشرف العام
- * تقبل كلمة المرور المعتمدة حالياً، والرمز السيادي 2026، والكلمة المسجلة بالسحاب ahmED@123 وتتسامح مع حالة الأحرف.
+ * تقبل كلمة المرور المعتمدة حالياً (أو الكلمة الافتراضية ahmED@123) وتتسامح مع حالة الأحرف.
+ * تم حظر وإلغاء رمز 2026 نهائياً ومطلقاً.
  */
 export const isSuperAdminPass = (entered: string, superAdminObj?: TrainerAccount): boolean => {
   const raw = String(entered || '').trim();
   if (!raw) return false;
+  // حظر استخدام 2026 نهائياً
+  if (raw === '2026') return false;
+
   const lower = raw.toLowerCase();
 
   const currentAdminPass = String(superAdminObj?.password || '').trim();
-  const currentAdminLower = currentAdminPass.toLowerCase();
+  const effectivePass = (currentAdminPass && currentAdminPass !== '2026') ? currentAdminPass : 'ahmED@123';
+  const effectiveLower = effectivePass.toLowerCase();
 
   return (
-    raw === currentAdminPass ||
-    (currentAdminLower !== '' && lower === currentAdminLower) ||
-    raw === '2026' ||
-    lower === '2026' ||
+    raw === effectivePass ||
+    lower === effectiveLower ||
     raw === 'ahmED@123' ||
     lower === 'ahmed@123'
   );
@@ -403,6 +433,15 @@ export const authenticateTrainerOrAdminSync = (
 ): AuthResult => {
   const rawInput1 = String(usernameOrCode || '').trim();
   const rawInput2 = String(password || '').trim();
+
+  // منع وحظر استخدام رمز 2026 نهائياً من أي حقل
+  if (rawInput1 === '2026' || rawInput2 === '2026') {
+    return {
+      success: false,
+      error: 'كلمة المرور غير صحيحة، يرجى التأكد وإعادة المحاولة',
+    };
+  }
+
   const trainers = getLocalTrainers();
 
   // إيجاد الحساب الفعلي المعتمد للمشرف العام
@@ -421,7 +460,9 @@ export const authenticateTrainerOrAdminSync = (
 
     // فحص ما إذا كان المدخل كلمة مرور أحد المعلمين المسجلين
     const matchedByPass = trainers.find(
-      (t) => String(t.password).trim() === rawInput1 || String(t.password).trim().toLowerCase() === rawInput1.toLowerCase()
+      (t) =>
+        t.password !== '2026' &&
+        (String(t.password).trim() === rawInput1 || String(t.password).trim().toLowerCase() === rawInput1.toLowerCase())
     );
     if (matchedByPass) {
       if (matchedByPass.status === 'suspended') {
@@ -457,7 +498,7 @@ export const authenticateTrainerOrAdminSync = (
 
     return {
       success: false,
-      error: 'كلمة المرور أو الرمز السري غير صحيح. يرجى التأكد وإعادة المحاولة (رمز المشرف الافتراضي: 2026 أو كلمة المرور الخاصة بك).',
+      error: 'كلمة المرور أو الرمز السري غير صحيح. يرجى التأكد وإعادة المحاولة.',
     };
   }
 
